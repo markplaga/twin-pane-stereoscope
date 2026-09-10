@@ -1,1 +1,978 @@
-/home/claude/index_standalone.html
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Twin Pane Stereoscope</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+  /* ── Twin Pane Stereoscope ───────────────────────────────────────────
+     Single committed dark instrument palette: a viewer must not tint the
+     photograph, so the chrome stays a cool near-black with a stereocard
+     ochre accent. Eye markers use the anaglyph convention (red = left,
+     cyan = right) and are the only other colour on the page.          */
+  :root{
+    --ink:      #0a0b0d;   /* stage ground              */
+    --panel:    #131519;   /* rails and popovers        */
+    --panel-hi: #1c1f25;   /* raised control            */
+    --line:     #282c34;   /* hairlines                 */
+    --line-hi:  #3a404a;
+    --mute:     #7d858f;   /* secondary text            */
+    --text:     #e6e8ec;   /* primary text              */
+    --ochre:    #d2a24c;   /* accent — stereocard stock */
+    --ochre-dk: #8a6a2e;
+    --eye-l:    #e0604a;
+    --eye-r:    #4aa6c4;
+
+    --rail: 52px;
+    --gap: 10px;
+
+    --f-disp: "Barlow Condensed", "Oswald", "Arial Narrow", sans-serif;
+    --f-ui:   "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+    --f-num:  "IBM Plex Mono", ui-monospace, "SF Mono", monospace;
+  }
+
+  *{ box-sizing: border-box; }
+
+  body{ background: var(--ink); }
+
+  #app{
+    position: fixed; inset: 0;
+    display: flex; flex-direction: column;
+    background: var(--ink);
+    color: var(--text);
+    font-family: var(--f-ui);
+    overflow: hidden;
+    overscroll-behavior: none;
+    -webkit-user-select: none; user-select: none;
+  }
+  #app.hidechrome .chrome{ opacity: 0; pointer-events: none; }
+
+  /* Maximised: rails out of the way, panes edge to edge. Used on its own
+     when the host blocks the Fullscreen API, and alongside it when not. */
+  #app.maxed header, #app.maxed footer .rail{ display: none; }
+  #app.maxed #stage{ padding: 0; gap: 2px; }
+  #app.maxed .pane{ border: none; }
+  #app.maxed #dots{ padding: 0; gap: 2px; }
+  #app.maxed footer{ border-top: none; background: transparent; }
+  #exitMax{
+    position: absolute; right: 10px; top: 10px; z-index: 45;
+    background: rgba(19,21,25,.86); border: 1px solid var(--line-hi);
+    font-family: var(--f-disp); font-size: 12px; font-weight: 500;
+    letter-spacing: .14em; text-transform: uppercase;
+  }
+  #app:not(.maxed) #exitMax{ display: none; }
+  #app.maxed.hidechrome #exitMax{ opacity: 0; pointer-events: none; }
+  .chrome{ transition: opacity .18s ease; }
+  @media (prefers-reduced-motion: reduce){ *{ transition: none !important; animation: none !important; } }
+
+  /* ── nameplate ─────────────────────────────────────────────── */
+  header{
+    flex: 0 0 auto;
+    display: flex; align-items: center; gap: 14px;
+    padding: 0 14px; height: 42px;
+    background: var(--panel);
+    border-bottom: 1px solid var(--line);
+  }
+  .mark{
+    display: flex; align-items: baseline; gap: 7px;
+    font-family: var(--f-disp);
+    font-size: 17px; font-weight: 600;
+    letter-spacing: .13em; text-transform: uppercase;
+    color: var(--text); white-space: nowrap;
+  }
+  .mark b{ color: var(--ochre); font-weight: 600; }
+  .plate-no{
+    font-family: var(--f-num); font-size: 10px; color: var(--mute);
+    letter-spacing: .04em;
+  }
+  .slug{
+    flex: 1 1 auto; min-width: 0;
+    display: flex; align-items: baseline; gap: 10px;
+    font-family: var(--f-num); font-size: 12px; color: var(--mute);
+  }
+  .slug .name{
+    color: var(--text);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .slug .dim{ font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .mode-tag{
+    flex: 0 0 auto;
+    font-family: var(--f-disp); font-size: 12px; font-weight: 500;
+    letter-spacing: .16em; text-transform: uppercase;
+    color: var(--ochre);
+    border: 1px solid var(--ochre-dk); border-radius: 2px;
+    padding: 3px 8px 2px;
+  }
+
+  /* ── stage ─────────────────────────────────────────────────── */
+  #stage{
+    flex: 1 1 auto; min-height: 0;
+    display: flex; gap: var(--gap);
+    justify-content: center;
+    padding: var(--gap);
+    touch-action: none;
+    position: relative;
+  }
+  .pane{
+    position: relative;
+    flex: 1 1 0; min-width: 0;
+    max-width: calc(var(--stagew, 100%) / 2);
+    background: #000;
+    overflow: hidden;
+    border: 1px solid var(--line);
+    cursor: grab;
+  }
+  .pane.dragging{ cursor: grabbing; }
+  .frame{
+    position: absolute; top: 0; left: 0;
+    transform-origin: 0 0;
+    will-change: transform;
+    overflow: hidden;
+  }
+  .frame img{
+    position: absolute; top: 0;
+    display: block;
+    max-width: none; max-height: none;   /* the frame does the cropping */
+    image-rendering: -webkit-optimize-contrast;
+  }
+  /* eye tab — anaglyph convention, tiny */
+  .pane::after{
+    content: attr(data-eye);
+    position: absolute; left: 6px; bottom: 5px;
+    font-family: var(--f-disp); font-size: 11px; font-weight: 600;
+    letter-spacing: .14em;
+    padding: 1px 5px 0; border-radius: 2px;
+    color: #06070a; background: var(--tab, #666);
+    opacity: .82; pointer-events: none;
+  }
+  .pane[data-tab="L"]{ --tab: var(--eye-l); }
+  .pane[data-tab="R"]{ --tab: var(--eye-r); }
+
+  /* fusion dots — the classic free-viewing aid, one per pane centre */
+  #dots{
+    position: absolute; left: 0; right: 0; top: 2px;
+    display: flex; gap: var(--gap); justify-content: center;
+    padding: 0 var(--gap);
+    pointer-events: none;
+  }
+  #dots span{
+    flex: 1 1 0; max-width: calc(var(--stagew, 100%) / 2);
+    display: flex; justify-content: center;
+  }
+  #dots span::before{
+    content: ""; width: 7px; height: 7px; border-radius: 50%;
+    background: var(--ochre); opacity: .9;
+  }
+  #app:not(.dots) #dots{ display: none; }
+
+  /* ── instrument rail ───────────────────────────────────────── */
+  footer{
+    flex: 0 0 auto;
+    background: var(--panel);
+    border-top: 1px solid var(--line);
+  }
+  .rail{
+    display: flex; align-items: center; gap: 6px;
+    padding: 7px 10px;
+    min-height: var(--rail);
+    flex-wrap: wrap;
+  }
+  .grp{
+    display: flex; align-items: center; gap: 4px;
+    padding: 3px; border: 1px solid var(--line); border-radius: 3px;
+    background: #0e1013;
+  }
+  .sep{ flex: 1 1 auto; }
+
+  button{
+    font-family: var(--f-ui); font-size: 13px;
+    color: var(--text); background: var(--panel-hi);
+    border: 1px solid transparent; border-radius: 2px;
+    padding: 6px 10px; min-height: 32px;
+    cursor: pointer; line-height: 1;
+    display: inline-flex; align-items: center; gap: 6px;
+    transition: background .12s ease, color .12s ease;
+  }
+  button:hover{ background: #262a31; }
+  button:active{ background: #2f343c; }
+  button:focus-visible{ outline: 2px solid var(--ochre); outline-offset: 1px; }
+  button[aria-pressed="true"]{ background: var(--ochre); color: #14100a; }
+  button.ghost{ background: transparent; }
+  button.ghost:hover{ background: var(--panel-hi); }
+  button .k{
+    font-family: var(--f-num); font-size: 10px; color: var(--mute);
+  }
+  button[aria-pressed="true"] .k{ color: #4a3a18; }
+  .icon{ width: 34px; padding: 6px 0; justify-content: center; font-size: 15px; }
+
+  .readout{
+    font-family: var(--f-num); font-size: 12px;
+    font-variant-numeric: tabular-nums;
+    color: var(--text);
+    min-width: 62px; text-align: center;
+    padding: 0 4px;
+  }
+  .readout small{ display: block; font-size: 9px; color: var(--mute); letter-spacing: .08em; }
+
+  label.lab{
+    font-family: var(--f-disp); font-size: 12px; font-weight: 500;
+    letter-spacing: .14em; text-transform: uppercase; color: var(--mute);
+    white-space: nowrap;
+  }
+
+  input[type="range"]{
+    accent-color: var(--ochre);
+    height: 22px; cursor: pointer;
+  }
+  #seek{ flex: 1 1 140px; min-width: 90px; }
+
+  /* ── settings popover ──────────────────────────────────────── */
+  #panelSet{
+    position: absolute; right: 10px; bottom: calc(var(--rail) + 12px);
+    width: min(320px, calc(100vw - 20px));
+    background: var(--panel);
+    border: 1px solid var(--line-hi); border-radius: 4px;
+    box-shadow: 0 18px 44px rgba(0,0,0,.66);
+    padding: 14px; z-index: 40;
+    display: grid; gap: 13px;
+  }
+  #panelSet h2{
+    margin: 0; font-family: var(--f-disp); font-size: 13px; font-weight: 600;
+    letter-spacing: .18em; text-transform: uppercase; color: var(--ochre);
+  }
+  .row{ display: flex; align-items: center; gap: 10px; justify-content: space-between; }
+  .row .lab{ flex: 0 0 auto; }
+  .row input[type="range"]{ flex: 1 1 auto; min-width: 0; }
+  .val{ font-family: var(--f-num); font-size: 11px; color: var(--mute);
+        font-variant-numeric: tabular-nums; min-width: 40px; text-align: right; }
+  .nudge{ display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; }
+  .note{
+    font-size: 11.5px; line-height: 1.5; color: var(--mute);
+    border-left: 2px solid var(--line-hi); padding-left: 9px; margin: 0;
+  }
+  .note b{ color: var(--text); font-weight: 500; }
+
+  /* ── drop veil ─────────────────────────────────────────────── */
+  #veil{
+    position: absolute; inset: var(--gap); z-index: 50;
+    display: none; place-items: center;
+    background: rgba(10,11,13,.9);
+    border: 2px dashed var(--ochre);
+    font-family: var(--f-disp); font-size: 20px; letter-spacing: .16em;
+    text-transform: uppercase; color: var(--ochre);
+  }
+  #app.drop #veil{ display: grid; }
+
+  #toast{
+    position: absolute; left: 50%; bottom: calc(var(--rail) + 18px);
+    transform: translateX(-50%);
+    background: var(--panel-hi); border: 1px solid var(--line-hi);
+    border-radius: 3px; padding: 8px 14px;
+    font-family: var(--f-num); font-size: 12px; color: var(--text);
+    z-index: 60; opacity: 0; pointer-events: none;
+    transition: opacity .2s ease;
+  }
+  #toast.on{ opacity: 1; }
+
+  .hid{ display: none !important; }
+
+  @media (max-width: 620px){
+    header{ height: 38px; gap: 10px; }
+    .mark{ font-size: 15px; }
+    .slug .dim, .plate-no{ display: none; }
+    .rail{ gap: 5px; padding: 6px 8px; }
+    button{ padding: 6px 8px; font-size: 12px; }
+    button .k{ display: none; }
+    .icon{ width: 32px; }
+  }
+</style>
+</head>
+<body>
+<div id="app" class="dots">
+  <header class="chrome">
+    <span class="mark">Twin&nbsp;Pane <b>Stereoscope</b></span>
+    <span class="plate-no" id="plateNo">PLATE 1 / 1</span>
+    <span class="slug">
+      <span class="name" id="slugName">Depth test card</span>
+      <span class="dim" id="slugDim">—</span>
+    </span>
+    <span class="mode-tag" id="modeTag">Cross-eyed</span>
+  </header>
+
+  <div id="stage">
+    <div class="pane" id="paneA" data-eye="LEFT EYE" data-tab="L">
+      <div class="frame" id="frameA"><img id="imgA" alt="Left half of the stereo pair"></div>
+    </div>
+    <div class="pane" id="paneB" data-eye="RIGHT EYE" data-tab="R">
+      <div class="frame" id="frameB"><img id="imgB" alt="Right half of the stereo pair"></div>
+    </div>
+    <div id="dots" aria-hidden="true"><span></span><span></span></div>
+    <button id="exitMax" class="chrome" title="Leave maximised view (F or Esc)">Exit ⛶</button>
+    <div id="veil">Drop images or a folder</div>
+  </div>
+
+  <footer class="chrome">
+    <div class="rail">
+      <div class="grp">
+        <button class="icon" id="prev" title="Previous plate (←)">◀</button>
+        <span class="readout" id="counter">1 / 1<small>PLATE</small></span>
+        <button class="icon" id="next" title="Next plate (→)">▶</button>
+      </div>
+
+      <input type="range" id="seek" min="0" max="0" value="0" step="1" aria-label="Jump to plate" class="hid">
+
+      <div class="grp">
+        <button class="icon" id="zout" title="Zoom out (−)">−</button>
+        <span class="readout" id="zoomRead">100%<small>MAGNIF</small></span>
+        <button class="icon" id="zin" title="Zoom in (+)">+</button>
+        <button id="fit" title="Fit whole frame (0)">Fit <span class="k">0</span></button>
+        <button id="one" title="Native pixels (1)">1:1 <span class="k">1</span></button>
+      </div>
+
+      <div class="grp">
+        <button id="swap" aria-pressed="true" title="Swap halves for cross-eyed viewing (X)">Cross-eye <span class="k">X</span></button>
+      </div>
+
+      <span class="sep"></span>
+
+      <div class="grp">
+        <button id="openFolder" title="Open a folder of stereo pairs">Folder…</button>
+        <button id="openFiles" class="ghost" title="Open individual images">Files…</button>
+      </div>
+
+      <div class="grp">
+        <button class="icon" id="settings" title="Alignment &amp; viewing aids" aria-pressed="false">⚙</button>
+        <button class="icon" id="full" title="Fullscreen (F)">⛶</button>
+        <button class="icon" id="hide" title="Hide all controls (H)">◱</button>
+      </div>
+    </div>
+
+    <div id="panelSet" class="hid">
+      <h2>Alignment &amp; aids</h2>
+
+      <div class="row">
+        <span class="lab">Stage width</span>
+        <input type="range" id="stagew" min="40" max="100" step="1" value="100" aria-label="Stage width">
+        <span class="val" id="stagewVal">100%</span>
+      </div>
+
+      <div class="row">
+        <span class="lab">Vertical trim</span>
+        <input type="range" id="alignY" min="-60" max="60" step="1" value="0" aria-label="Vertical trim">
+        <span class="val" id="alignYVal">0 px</span>
+      </div>
+
+      <div class="row">
+        <span class="lab">Window shift</span>
+        <input type="range" id="alignX" min="-120" max="120" step="1" value="0" aria-label="Horizontal window shift">
+        <span class="val" id="alignXVal">0 px</span>
+      </div>
+
+      <div class="nudge">
+        <button class="ghost" id="nx-">◀ X</button>
+        <button class="ghost" id="nx+">X ▶</button>
+        <button class="ghost" id="ny-">▲ Y</button>
+        <button class="ghost" id="ny+">Y ▼</button>
+        <button class="ghost" id="nreset">Reset</button>
+      </div>
+
+      <div class="row">
+        <span class="lab">Fusion dots</span>
+        <button id="tDots" aria-pressed="true">On</button>
+        <span class="lab">Keep zoom</span>
+        <button id="tKeep" aria-pressed="true">On</button>
+      </div>
+
+      <p class="note">Both panes share one transform, so magnification and pan are identical by construction — the halves stay registered at any zoom. <b>Vertical trim</b> and <b>window shift</b> offset the right eye only, for pairs that were cut slightly off.</p>
+    </div>
+  </footer>
+
+  <div id="toast" role="status"></div>
+
+  <input type="file" id="fileFolder" webkitdirectory directory multiple accept="image/*" class="hid">
+  <input type="file" id="filePick" multiple accept="image/*" class="hid">
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  var app = document.getElementById('app');
+  var stage = document.getElementById('stage');
+  var paneA = document.getElementById('paneA'), paneB = document.getElementById('paneB');
+  var frameA = document.getElementById('frameA'), frameB = document.getElementById('frameB');
+  var imgA = document.getElementById('imgA'), imgB = document.getElementById('imgB');
+
+  /* ── persisted settings ─────────────────────────────────── */
+  var S = { swap:true, dots:true, keep:true, stagew:100, ax:0, ay:0 };
+  try{
+    var raw = localStorage.getItem('tps.v1');
+    if(raw) S = Object.assign(S, JSON.parse(raw));
+  }catch(e){}
+  function save(){ try{ localStorage.setItem('tps.v1', JSON.stringify(S)); }catch(e){} }
+
+  /* ── plate list ─────────────────────────────────────────── */
+  var plates = [];        // {name, url, revoke}
+  var idx = 0;
+  var natW = 0, natH = 0, halfW = 0;
+  var view = { s:1, tx:0, ty:0 };
+  var fitS = 1, paneW = 1, paneH = 1;
+
+  /* ── sample: procedural depth test card ─────────────────────
+     A real stereo pair needs real disparity. Each layer below is
+     drawn at ±half its disparity, so the plates sit at genuine
+     depths: negative behind the window, positive in front.      */
+  function sampleURL(){
+    var EW = 1100, EH = 840, c = document.createElement('canvas');
+    c.width = EW*2; c.height = EH;
+    var g = c.getContext('2d');
+
+    function eye(ox, sign){
+      g.save(); g.beginPath(); g.rect(ox,0,EW,EH); g.clip();
+      g.translate(ox,0);
+
+      var sky = g.createLinearGradient(0,0,0,EH);
+      sky.addColorStop(0,'#0d1420'); sky.addColorStop(.55,'#131a25'); sky.addColorStop(1,'#090b10');
+      g.fillStyle = sky; g.fillRect(0,0,EW,EH);
+
+      // far dot field, well behind the window
+      var d = -46, o = sign*d/2;
+      g.fillStyle = 'rgba(190,205,225,.5)';
+      for(var i=0;i<260;i++){
+        var x = ((i*137.508)%1)*0; // keep deterministic below
+        var px = ((i*67)%EW), py = ((i*151)%420);
+        var r = ((i%7)===0)?1.6:0.9;
+        g.beginPath(); g.arc(px+o, py+30, r, 0, 6.2832); g.fill();
+      }
+
+      // receding grid — disparity interpolates far→near per row
+      for(var r2=0;r2<22;r2++){
+        var t = r2/21;
+        var y = 470 + Math.pow(t,2.1)*360;
+        var disp = -40 + t*70;
+        var xo = sign*disp/2;
+        g.strokeStyle = 'rgba(210,162,76,' + (0.10 + t*0.26).toFixed(3) + ')';
+        g.lineWidth = 0.6 + t*1.5;
+        g.beginPath(); g.moveTo(-200+xo, y); g.lineTo(EW+200+xo, y); g.stroke();
+      }
+      for(var k=-9;k<=9;k++){
+        g.strokeStyle = 'rgba(210,162,76,.14)'; g.lineWidth = 1;
+        g.beginPath();
+        g.moveTo(EW/2 + k*22 + sign*(-40)/2, 470);
+        g.lineTo(EW/2 + k*126 + sign*(30)/2, 830);
+        g.stroke();
+      }
+
+      // three depth plates
+      var cards = [
+        { d:-30, x:120,  y:210, w:250, h:180, tag:'PLATE C', sub:'BEHIND WINDOW', px:'−30 px' },
+        { d:  0, x:430,  y:250, w:260, h:190, tag:'PLATE B', sub:'WINDOW PLANE',  px:'0 px'  },
+        { d: 44, x:700,  y:300, w:280, h:210, tag:'PLATE A', sub:'IN FRONT',      px:'+44 px' }
+      ];
+      cards.forEach(function(cd){
+        var xo = sign*cd.d/2, X = cd.x+xo, Y = cd.y;
+        g.fillStyle = 'rgba(12,14,18,.92)';
+        g.fillRect(X, Y, cd.w, cd.h);
+        g.strokeStyle = cd.d>0 ? '#d2a24c' : (cd.d<0 ? '#4aa6c4' : '#8d959f');
+        g.lineWidth = cd.d===44 ? 2.5 : 1.5;
+        g.strokeRect(X+.5, Y+.5, cd.w-1, cd.h-1);
+
+        // fine hatch — gives the zoom something to resolve
+        g.save(); g.beginPath(); g.rect(X,Y,cd.w,cd.h); g.clip();
+        g.strokeStyle = 'rgba(255,255,255,.05)'; g.lineWidth = 1;
+        for(var h=-cd.h; h<cd.w; h+=6){
+          g.beginPath(); g.moveTo(X+h, Y+cd.h); g.lineTo(X+h+cd.h, Y); g.stroke();
+        }
+        g.restore();
+
+        g.fillStyle = '#e6e8ec';
+        g.font = '600 22px "Barlow Condensed", sans-serif';
+        g.fillText(cd.tag, X+14, Y+32);
+        g.fillStyle = '#7d858f';
+        g.font = '11px "IBM Plex Mono", monospace';
+        g.fillText(cd.sub, X+14, Y+50);
+        g.fillStyle = cd.d>0 ? '#d2a24c' : (cd.d<0 ? '#4aa6c4' : '#8d959f');
+        g.font = '500 15px "IBM Plex Mono", monospace';
+        g.fillText('DISPARITY ' + cd.px, X+14, Y+74);
+
+        g.fillStyle = 'rgba(230,232,236,.42)';
+        g.font = '7px "IBM Plex Mono", monospace';
+        for(var L=0; L<8; L++){
+          g.fillText('0123456789 · resolve me at 400% · ' + (L+1),
+                     X+14, Y+92 + L*11);
+        }
+      });
+
+      // foreground reticle, strongest parallax
+      var rd = 70, rx = sign*rd/2;
+      g.strokeStyle = 'rgba(224,96,74,.85)'; g.lineWidth = 2;
+      var cx = EW/2 + rx, cy = 640;
+      g.beginPath(); g.arc(cx, cy, 46, 0, 6.2832); g.stroke();
+      g.beginPath(); g.moveTo(cx-70, cy); g.lineTo(cx-14, cy);
+      g.moveTo(cx+14, cy); g.lineTo(cx+70, cy);
+      g.moveTo(cx, cy-70); g.lineTo(cx, cy-14);
+      g.moveTo(cx, cy+14); g.lineTo(cx, cy+70); g.stroke();
+      g.fillStyle = 'rgba(224,96,74,.9)';
+      g.font = '500 12px "IBM Plex Mono", monospace';
+      g.fillText('+70 px', cx-22, cy+64);
+
+      // sheet edge caption at the window plane
+      g.fillStyle = '#6c7480';
+      g.font = '500 13px "IBM Plex Mono", monospace';
+      g.fillText('SAMPLE PAIR · open a folder to load your own', 26, EH-24);
+
+      g.restore();
+    }
+
+    eye(0, -1);      // left eye
+    eye(EW, +1);     // right eye
+    g.strokeStyle = 'rgba(255,255,255,.06)';
+    g.beginPath(); g.moveTo(EW,0); g.lineTo(EW,EH); g.stroke();
+    return c.toDataURL('image/png');
+  }
+
+  /* ── layout maths ───────────────────────────────────────── */
+  function measure(){
+    var r = paneA.getBoundingClientRect();
+    paneW = Math.max(1, r.width); paneH = Math.max(1, r.height);
+    if(!halfW) return;
+    fitS = Math.min(paneW/halfW, paneH/natH);
+  }
+  function maxS(){ return Math.max(fitS*14, 6); }
+
+  function clamp(){
+    var w = halfW*view.s, h = natH*view.s;
+    view.tx = (w <= paneW) ? (paneW-w)/2 : Math.min(0, Math.max(paneW-w, view.tx));
+    view.ty = (h <= paneH) ? (paneH-h)/2 : Math.min(0, Math.max(paneH-h, view.ty));
+  }
+
+  function render(){
+    if(!halfW) return;
+    clamp();
+    var s = view.s;
+    frameA.style.width = halfW+'px'; frameA.style.height = natH+'px';
+    frameB.style.width = halfW+'px'; frameB.style.height = natH+'px';
+    // Identical transform for both panes = guaranteed registration.
+    frameA.style.transform = 'translate(' + view.tx.toFixed(2) + 'px,' + view.ty.toFixed(2) + 'px) scale(' + s + ')';
+    frameB.style.transform = 'translate(' + (view.tx + S.ax*s).toFixed(2) + 'px,' + (view.ty + S.ay*s).toFixed(2) + 'px) scale(' + s + ')';
+    var pct = Math.round(s*100);
+    document.getElementById('zoomRead').innerHTML =
+      (pct >= 1000 ? Math.round(pct/10)/10 + 'k' : pct) + '%<small>' +
+      (Math.abs(s-fitS) < fitS*0.005 ? 'FIT' : (Math.abs(s-1) < 0.005 ? 'NATIVE' : 'MAGNIF')) + '</small>';
+  }
+
+  function fitView(){ measure(); view.s = fitS; clamp(); render(); }
+
+  function zoomAbout(px, py, factor){
+    var ns = Math.min(maxS(), Math.max(fitS, view.s*factor));
+    if(ns === view.s) return;
+    var k = ns/view.s;
+    view.tx = px - (px - view.tx)*k;
+    view.ty = py - (py - view.ty)*k;
+    view.s = ns;
+    render();
+  }
+  function zoomCentre(f){ zoomAbout(paneW/2, paneH/2, f); }
+
+  /* ── plate loading ──────────────────────────────────────── */
+  function setSlug(){
+    var p = plates[idx] || {name:'—'};
+    document.getElementById('slugName').textContent = p.name;
+    document.getElementById('slugDim').textContent =
+      natW ? (natW + '×' + natH + '  ·  ' + halfW + '×' + natH + ' per eye') : '—';
+    document.getElementById('counter').innerHTML = (idx+1) + ' / ' + plates.length + '<small>PLATE</small>';
+    document.getElementById('plateNo').textContent = 'PLATE ' + (idx+1) + ' / ' + plates.length;
+    var seek = document.getElementById('seek');
+    seek.max = Math.max(0, plates.length-1);
+    seek.value = idx;
+    seek.classList.toggle('hid', plates.length < 2);
+  }
+
+  function show(i, opts){
+    if(!plates.length) return;
+    idx = (i + plates.length) % plates.length;
+    var p = plates[idx];
+    // preserve relative zoom + centre when stepping between plates
+    var keep = S.keep && halfW && opts !== 'first';
+    var ratio = keep ? view.s/fitS : 1;
+    var cxN = keep ? ((paneW/2 - view.tx)/view.s)/halfW : .5;
+    var cyN = keep ? ((paneH/2 - view.ty)/view.s)/natH : .5;
+
+    var probe = new Image();
+    probe.onload = function(){
+      natW = probe.naturalWidth; natH = probe.naturalHeight;
+      halfW = Math.floor(natW/2);
+      imgA.src = imgB.src = p.url;
+      imgA.style.width = imgB.style.width = natW+'px';
+      imgA.style.height = imgB.style.height = natH+'px';
+      applySwap();
+      measure();
+      view.s = keep ? Math.min(maxS(), Math.max(fitS, fitS*ratio)) : fitS;
+      view.tx = paneW/2 - cxN*halfW*view.s;
+      view.ty = paneH/2 - cyN*natH*view.s;
+      render(); setSlug();
+      preload(idx+1); preload(idx-1);
+    };
+    probe.onerror = function(){ toast('Could not read ' + p.name); };
+    probe.src = p.url;
+  }
+  function preload(i){
+    if(plates.length < 2) return;
+    var p = plates[(i+plates.length)%plates.length];
+    if(p && !p.pre){ p.pre = new Image(); p.pre.src = p.url; }
+  }
+
+  function applySwap(){
+    // Cross-eyed: the LEFT pane must carry the RIGHT half of the pair.
+    imgA.style.left = (S.swap ? -halfW : 0) + 'px';
+    imgB.style.left = (S.swap ? 0 : -halfW) + 'px';
+    paneA.dataset.eye = S.swap ? 'RIGHT HALF' : 'LEFT HALF';
+    paneB.dataset.eye = S.swap ? 'LEFT HALF'  : 'RIGHT HALF';
+    paneA.dataset.tab = S.swap ? 'R' : 'L';
+    paneB.dataset.tab = S.swap ? 'L' : 'R';
+    document.getElementById('modeTag').textContent = S.swap ? 'Cross-eyed' : 'Parallel / VR';
+    document.getElementById('swap').textContent = S.swap ? 'Cross-eye' : 'Parallel';
+    document.getElementById('swap').appendChild(Object.assign(document.createElement('span'),{className:'k',textContent:'X'}));
+    document.getElementById('swap').setAttribute('aria-pressed', String(S.swap));
+  }
+
+  var IMG_RE = /\.(jpe?g|png|webp|gif|bmp|avif|jfif)$/i;
+  var coll = new Intl.Collator(undefined, {numeric:true, sensitivity:'base'});
+
+  function loadFiles(list){
+    var files = Array.prototype.slice.call(list).filter(function(f){
+      return IMG_RE.test(f.name) || /^image\//.test(f.type||'');
+    });
+    if(!files.length){ toast('No images found there'); return; }
+    files.sort(function(a,b){ return coll.compare(a.webkitRelativePath||a.name, b.webkitRelativePath||b.name); });
+    plates.forEach(function(p){ if(p.revoke) URL.revokeObjectURL(p.url); });
+    plates = files.map(function(f){
+      return { name: f.webkitRelativePath || f.name, url: URL.createObjectURL(f), revoke: true };
+    });
+    idx = 0; show(0, 'first');
+    toast(plates.length + (plates.length === 1 ? ' plate loaded' : ' plates loaded'));
+  }
+
+  /* ── pointer: pan, pinch, swipe, double-tap ─────────────── */
+  var ptrs = new Map(), activePane = null, prevC = null, prevD = 0;
+  var swipeAcc = 0, swiping = false, lastTap = 0, moved = 0;
+
+  function local(e){
+    var r = (activePane||paneA).getBoundingClientRect();
+    return { x: e.clientX - r.left, y: e.clientY - r.top };
+  }
+  function centroid(){
+    var xs=0, ys=0, n=0;
+    ptrs.forEach(function(p){ xs+=p.x; ys+=p.y; n++; });
+    return { x: xs/n, y: ys/n };
+  }
+  function spread(){
+    var a = Array.from(ptrs.values());
+    if(a.length < 2) return 0;
+    return Math.hypot(a[0].x-a[1].x, a[0].y-a[1].y);
+  }
+
+  stage.addEventListener('pointerdown', function(e){
+    var pane = e.target.closest ? e.target.closest('.pane') : null;
+    if(!pane) return;
+    if(!ptrs.size) activePane = pane;
+    pane.setPointerCapture && pane.setPointerCapture(e.pointerId);
+    ptrs.set(e.pointerId, local(e));
+    prevC = centroid(); prevD = spread();
+    moved = 0; swipeAcc = 0;
+    swiping = (ptrs.size === 1) && (view.s <= fitS*1.02) && plates.length > 1;
+    activePane.classList.add('dragging');
+    e.preventDefault();
+  });
+
+  stage.addEventListener('pointermove', function(e){
+    if(!ptrs.has(e.pointerId)) return;
+    ptrs.set(e.pointerId, local(e));
+    var c = centroid(), d = spread();
+    if(ptrs.size >= 2){
+      swiping = false;
+      if(prevD > 0 && d > 0) zoomAbout(c.x, c.y, d/prevD);
+      view.tx += c.x - prevC.x; view.ty += c.y - prevC.y;
+      render();
+    } else {
+      var dx = c.x - prevC.x, dy = c.y - prevC.y;
+      moved += Math.abs(dx) + Math.abs(dy);
+      if(swiping){ swipeAcc += dx; }
+      else { view.tx += dx; view.ty += dy; render(); }
+    }
+    prevC = c; prevD = d;
+    e.preventDefault();
+  });
+
+  function endPtr(e){
+    if(!ptrs.has(e.pointerId)) return;
+    ptrs.delete(e.pointerId);
+    if(ptrs.size){ prevC = centroid(); prevD = spread(); return; }
+    if(activePane) activePane.classList.remove('dragging');
+    if(swiping && Math.abs(swipeAcc) > Math.max(50, paneW*0.12)){
+      show(idx + (swipeAcc < 0 ? 1 : -1));
+    } else if(moved < 6){
+      var now = Date.now();
+      if(now - lastTap < 320){
+        var p = local(e);
+        if(view.s > fitS*1.02) fitView(); else zoomAbout(p.x, p.y, 3.2);
+        lastTap = 0;
+      } else lastTap = now;
+    }
+    swiping = false; activePane = null;
+  }
+  stage.addEventListener('pointerup', endPtr);
+  stage.addEventListener('pointercancel', endPtr);
+
+  stage.addEventListener('wheel', function(e){
+    e.preventDefault();
+    activePane = e.target.closest ? (e.target.closest('.pane') || paneA) : paneA;
+    var p = local(e);
+    zoomAbout(p.x, p.y, Math.exp(-e.deltaY * (e.deltaMode === 1 ? 0.05 : 0.0018)));
+    activePane = null;
+  }, {passive:false});
+
+  // iOS Safari page-level pinch
+  ['gesturestart','gesturechange','gestureend'].forEach(function(t){
+    stage.addEventListener(t, function(e){ e.preventDefault(); }, {passive:false});
+  });
+
+  /* ── controls ───────────────────────────────────────────── */
+  function toast(msg){
+    var t = document.getElementById('toast');
+    t.textContent = msg; t.classList.add('on');
+    clearTimeout(toast._t); toast._t = setTimeout(function(){ t.classList.remove('on'); }, 1900);
+  }
+  function on(id, fn){ document.getElementById(id).addEventListener('click', fn); }
+
+  on('prev', function(){ show(idx-1); });
+  on('next', function(){ show(idx+1); });
+  on('zin',  function(){ zoomCentre(1.35); });
+  on('zout', function(){ zoomCentre(1/1.35); });
+  on('fit',  fitView);
+  on('one',  function(){
+    var cx = (paneW/2 - view.tx)/view.s, cy = (paneH/2 - view.ty)/view.s;
+    view.s = Math.min(maxS(), Math.max(fitS, 1));
+    view.tx = paneW/2 - cx*view.s; view.ty = paneH/2 - cy*view.s;
+    render();
+  });
+  on('swap', function(){ S.swap = !S.swap; applySwap(); save(); });
+
+  document.getElementById('seek').addEventListener('input', function(e){ show(+e.target.value); });
+
+  on('openFolder', function(){ document.getElementById('fileFolder').click(); });
+  on('openFiles',  function(){ document.getElementById('filePick').click(); });
+  document.getElementById('fileFolder').addEventListener('change', function(e){ loadFiles(e.target.files); e.target.value=''; });
+  document.getElementById('filePick').addEventListener('change',  function(e){ loadFiles(e.target.files); e.target.value=''; });
+
+  /* Fullscreen.
+     A published artifact runs inside a sandboxed frame, and many hosts
+     withhold the fullscreen permission — requestFullscreen then rejects
+     (or fullscreenEnabled is already false, and iOS Safari has no element
+     fullscreen at all). So the button's real job is "maximise": rails
+     away, panes edge to edge. Native fullscreen is layered on top when
+     the host actually allows it. */
+  function fsElement(){
+    return document.fullscreenElement || document.webkitFullscreenElement || null;
+  }
+  function fsExit(){
+    if(document.exitFullscreen) return document.exitFullscreen();
+    if(document.webkitExitFullscreen) return document.webkitExitFullscreen();
+  }
+  function fsRequest(el){
+    var fn = el.requestFullscreen || el.webkitRequestFullscreen || el.webkitRequestFullScreen;
+    if(!fn) return Promise.reject(new Error('unsupported'));
+    try{ return Promise.resolve(fn.call(el, {navigationUI:'hide'})); }
+    catch(err){ return Promise.reject(err); }
+  }
+  function relayout(){
+    requestAnimationFrame(function(){
+      var ratio = fitS ? view.s/fitS : 1;
+      measure();
+      view.s = Math.min(maxS(), Math.max(fitS, fitS*ratio));
+      render();
+    });
+  }
+
+  function setMax(on){
+    app.classList.toggle('maxed', on);
+    relayout();
+  }
+
+  on('full', function(){
+    if(app.classList.contains('maxed')){
+      if(fsElement()) fsExit();
+      setMax(false);
+      return;
+    }
+    setMax(true);
+    if(document.fullscreenEnabled === false && !document.webkitFullscreenEnabled){
+      toast('This page can’t take over the screen here — maximised instead. Esc to exit.');
+      return;
+    }
+    fsRequest(app).catch(function(){
+      toast('This page can’t take over the screen here — maximised instead. Esc to exit.');
+    });
+  });
+  on('exitMax', function(){ document.getElementById('full').click(); });
+
+  ['fullscreenchange','webkitfullscreenchange'].forEach(function(t){
+    document.addEventListener(t, function(){
+      if(!fsElement() && app.classList.contains('maxed')) setMax(false);
+      else relayout();
+    });
+  });
+  on('hide', function(){
+    app.classList.add('hidechrome');
+    toast('Controls hidden — press H or tap twice to bring them back');
+  });
+
+  var setBtn = document.getElementById('settings'), setPanel = document.getElementById('panelSet');
+  on('settings', function(){
+    var open = setPanel.classList.toggle('hid');
+    setBtn.setAttribute('aria-pressed', String(!open));
+  });
+
+  function bindRange(id, key, fmt, after){
+    var el = document.getElementById(id), out = document.getElementById(id+'Val');
+    el.value = S[key];
+    out.textContent = fmt(S[key]);
+    el.addEventListener('input', function(){
+      S[key] = +el.value; out.textContent = fmt(S[key]);
+      if(after) after();
+      render(); save();
+    });
+  }
+  bindRange('stagew', 'stagew', function(v){ return v+'%'; }, function(){
+    stage.style.setProperty('--stagew', S.stagew+'%');
+    document.getElementById('dots').style.setProperty('--stagew', S.stagew+'%');
+    requestAnimationFrame(function(){ measure(); if(view.s < fitS) view.s = fitS; render(); });
+  });
+  bindRange('alignY', 'ay', function(v){ return v+' px'; });
+  bindRange('alignX', 'ax', function(v){ return v+' px'; });
+
+  function nudge(dx, dy){
+    S.ax = Math.max(-120, Math.min(120, S.ax+dx));
+    S.ay = Math.max(-60,  Math.min(60,  S.ay+dy));
+    document.getElementById('alignX').value = S.ax;
+    document.getElementById('alignY').value = S.ay;
+    document.getElementById('alignXVal').textContent = S.ax+' px';
+    document.getElementById('alignYVal').textContent = S.ay+' px';
+    render(); save();
+  }
+  on('nx-', function(){ nudge(-1,0); });
+  on('nx+', function(){ nudge(1,0); });
+  on('ny-', function(){ nudge(0,-1); });
+  on('ny+', function(){ nudge(0,1); });
+  on('nreset', function(){ S.ax = 0; S.ay = 0; nudge(0,0); });
+
+  function toggle(id, key, cls){
+    var b = document.getElementById(id);
+    function paint(){
+      b.textContent = S[key] ? 'On' : 'Off';
+      b.setAttribute('aria-pressed', String(!!S[key]));
+      if(cls) app.classList.toggle(cls, !!S[key]);
+    }
+    b.addEventListener('click', function(){ S[key] = !S[key]; paint(); save(); });
+    paint();
+  }
+  toggle('tDots', 'dots', 'dots');
+  toggle('tKeep', 'keep', null);
+
+  /* ── keyboard ───────────────────────────────────────────── */
+  window.addEventListener('keydown', function(e){
+    if(e.target.tagName === 'INPUT' && e.target.type === 'range' && (e.key==='ArrowLeft'||e.key==='ArrowRight')) return;
+    var k = e.key;
+    if(e.shiftKey && (k==='ArrowLeft'||k==='ArrowRight'||k==='ArrowUp'||k==='ArrowDown')){
+      nudge(k==='ArrowLeft'?-1:k==='ArrowRight'?1:0, k==='ArrowUp'?-1:k==='ArrowDown'?1:0);
+      e.preventDefault(); return;
+    }
+    switch(k){
+      case 'ArrowLeft':  show(idx-1); break;
+      case 'ArrowRight': show(idx+1); break;
+      case 'ArrowUp':    zoomCentre(1.25); break;
+      case 'ArrowDown':  zoomCentre(1/1.25); break;
+      case '+': case '=': zoomCentre(1.35); break;
+      case '-': case '_': zoomCentre(1/1.35); break;
+      case '0': fitView(); break;
+      case '1': document.getElementById('one').click(); break;
+      case 'x': case 'X': document.getElementById('swap').click(); break;
+      case 'f': case 'F': document.getElementById('full').click(); break;
+      case 'h': case 'H': app.classList.toggle('hidechrome'); break;
+      case 'd': case 'D': document.getElementById('tDots').click(); break;
+      case 'Escape':
+        setPanel.classList.add('hid'); setBtn.setAttribute('aria-pressed','false');
+        if(app.classList.contains('maxed')){ if(fsElement()) fsExit(); setMax(false); }
+        else app.classList.remove('hidechrome');
+        break;
+      default: return;
+    }
+    e.preventDefault();
+  });
+
+  // tapping twice on a hidden-chrome stage brings the rails back
+  stage.addEventListener('dblclick', function(){
+    if(app.classList.contains('hidechrome')) app.classList.remove('hidechrome');
+  });
+
+  /* ── drag & drop, incl. folders ─────────────────────────── */
+  var dragDepth = 0;
+  window.addEventListener('dragenter', function(e){ e.preventDefault(); dragDepth++; app.classList.add('drop'); });
+  window.addEventListener('dragover',  function(e){ e.preventDefault(); });
+  window.addEventListener('dragleave', function(e){ e.preventDefault(); if(--dragDepth <= 0){ dragDepth = 0; app.classList.remove('drop'); } });
+  window.addEventListener('drop', function(e){
+    e.preventDefault(); dragDepth = 0; app.classList.remove('drop');
+    var items = e.dataTransfer.items;
+    if(items && items.length && items[0].webkitGetAsEntry){
+      var entries = [], out = [], pending = 1;
+      for(var i=0;i<items.length;i++){ var en = items[i].webkitGetAsEntry(); if(en) entries.push(en); }
+      function done(){ if(--pending === 0) loadFiles(out); }
+      function walk(entry, path){
+        if(entry.isFile){
+          pending++;
+          entry.file(function(f){
+            try{ Object.defineProperty(f, 'webkitRelativePath', {value: path + f.name}); }catch(err){}
+            out.push(f); done();
+          }, done);
+        } else if(entry.isDirectory){
+          pending++;
+          var rd = entry.createReader();
+          (function read(){
+            rd.readEntries(function(list){
+              if(!list.length){ done(); return; }
+              list.forEach(function(sub){ walk(sub, path + entry.name + '/'); });
+              read();
+            }, done);
+          })();
+        }
+      }
+      entries.forEach(function(en){ walk(en, ''); });
+      done();
+    } else if(e.dataTransfer.files){
+      loadFiles(e.dataTransfer.files);
+    }
+  });
+
+  /* ── boot ───────────────────────────────────────────────── */
+  stage.style.setProperty('--stagew', S.stagew+'%');
+  document.getElementById('dots').style.setProperty('--stagew', S.stagew+'%');
+  applySwap();
+
+  var ro = new ResizeObserver(function(){
+    var prevFit = fitS, ratio = fitS ? view.s/fitS : 1;
+    measure();
+    view.s = Math.min(maxS(), Math.max(fitS, fitS*ratio));
+    if(!prevFit) view.s = fitS;
+    render();
+  });
+  ro.observe(stage);
+  window.addEventListener('resize', function(){ measure(); render(); });
+
+  plates = [{ name: 'Depth test card (sample)', url: sampleURL(), revoke: false }];
+  show(0, 'first');
+})();
+</script>
+</body>
+</html>
