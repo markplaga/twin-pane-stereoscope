@@ -1,11 +1,8 @@
-<!doctype html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1"><style>:root{color-scheme:light}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#faf9f5;color:#141413}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
 <title>Twin Pane Stereoscope</title>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <style>
   /* ── Twin Pane Stereoscope ───────────────────────────────────────────
      Single committed dark instrument palette: a viewer must not tint the
@@ -66,6 +63,12 @@
   #app.maxed.hidechrome #exitMax{ opacity: 0; pointer-events: none; }
   .chrome{ transition: opacity .18s ease; }
   @media (prefers-reduced-motion: reduce){ *{ transition: none !important; animation: none !important; } }
+
+  /* Single-image mode: one pane fills the stage, the second pane and every
+     stereo-only control (halves swap, fusion dots, alignment offsets) drop
+     out, since none of them mean anything without a pair to register. */
+  #app.mono #paneB, #app.mono #dots, #app.mono #grpSwap, #app.mono #secStereo{ display: none; }
+  #app.mono .pane{ max-width: 100%; flex: 1 1 100%; }
 
   /* ── nameplate ─────────────────────────────────────────────── */
   header{
@@ -238,13 +241,32 @@
     padding: 14px; z-index: 40;
     display: grid; gap: 13px;
   }
-  #panelSet h2{
+  #panelSet h2, #panelOpen h2{
     margin: 0; font-family: var(--f-disp); font-size: 13px; font-weight: 600;
     letter-spacing: .18em; text-transform: uppercase; color: var(--ochre);
   }
+
+  /* ── "Open from" chooser (touch devices) ───────────────────── */
+  #panelOpen{
+    position: absolute; right: 10px; bottom: calc(var(--rail) + 12px);
+    width: min(300px, calc(100vw - 20px));
+    background: var(--panel);
+    border: 1px solid var(--line-hi); border-radius: 4px;
+    box-shadow: 0 18px 44px rgba(0,0,0,.66);
+    padding: 12px; z-index: 42;
+    display: grid; gap: 8px;
+  }
+  #panelOpen button{
+    flex-direction: column; align-items: flex-start; gap: 4px;
+    padding: 10px 12px; min-height: 52px; text-align: left;
+    background: var(--panel-hi);
+  }
+  #panelOpen button:hover{ background: #262a31; }
+  #panelOpen .sub{ font-size: 11px; line-height: 1.3; color: var(--mute); }
   .row{ display: flex; align-items: center; gap: 10px; justify-content: space-between; }
   .row .lab{ flex: 0 0 auto; }
   .row input[type="range"]{ flex: 1 1 auto; min-width: 0; }
+  #secStereo{ display: grid; gap: 13px; }
   .val{ font-family: var(--f-num); font-size: 11px; color: var(--mute);
         font-variant-numeric: tabular-nums; min-width: 40px; text-align: right; }
   .nudge{ display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; }
@@ -288,8 +310,7 @@
     .icon{ width: 32px; }
   }
 </style>
-</head>
-<body>
+
 <div id="app" class="dots">
   <header class="chrome">
     <span class="mark">Twin&nbsp;Pane <b>Stereoscope</b></span>
@@ -310,7 +331,7 @@
     </div>
     <div id="dots" aria-hidden="true"><span></span><span></span></div>
     <button id="exitMax" class="chrome" title="Leave maximised view (F or Esc)">Exit ⛶</button>
-    <div id="veil">Drop images or a folder</div>
+    <div id="veil">Drop images, a folder, or a .zip</div>
   </div>
 
   <footer class="chrome">
@@ -331,15 +352,20 @@
         <button id="one" title="Native pixels (1)">1:1 <span class="k">1</span></button>
       </div>
 
-      <div class="grp">
+      <div class="grp" id="grpSwap">
         <button id="swap" aria-pressed="true" title="Swap halves for cross-eyed viewing (X)">Cross-eye <span class="k">X</span></button>
+      </div>
+
+      <div class="grp">
+        <button id="mono" title="Treat images as ordinary single pictures, not stereo pairs (M)">Stereo pair <span class="k">M</span></button>
       </div>
 
       <span class="sep"></span>
 
       <div class="grp">
-        <button id="openFolder" title="Open a folder of stereo pairs">Folder…</button>
+        <button id="openFolder" title="Open a folder of images">Folder…</button>
         <button id="openFiles" class="ghost" title="Open individual images">Files…</button>
+        <button id="openZip" class="ghost" title="Open a .zip file of images">Zip…</button>
       </div>
 
       <div class="grp">
@@ -352,40 +378,57 @@
     <div id="panelSet" class="hid">
       <h2>Alignment &amp; aids</h2>
 
-      <div class="row">
-        <span class="lab">Stage width</span>
-        <input type="range" id="stagew" min="40" max="100" step="1" value="100" aria-label="Stage width">
-        <span class="val" id="stagewVal">100%</span>
+      <div id="secStereo">
+        <div class="row">
+          <span class="lab">Stage width</span>
+          <input type="range" id="stagew" min="40" max="100" step="1" value="100" aria-label="Stage width">
+          <span class="val" id="stagewVal">100%</span>
+        </div>
+
+        <div class="row">
+          <span class="lab">Vertical trim</span>
+          <input type="range" id="alignY" min="-60" max="60" step="1" value="0" aria-label="Vertical trim">
+          <span class="val" id="alignYVal">0 px</span>
+        </div>
+
+        <div class="row">
+          <span class="lab">Window shift</span>
+          <input type="range" id="alignX" min="-120" max="120" step="1" value="0" aria-label="Horizontal window shift">
+          <span class="val" id="alignXVal">0 px</span>
+        </div>
+
+        <div class="nudge">
+          <button class="ghost" id="nx-">◀ X</button>
+          <button class="ghost" id="nx+">X ▶</button>
+          <button class="ghost" id="ny-">▲ Y</button>
+          <button class="ghost" id="ny+">Y ▼</button>
+          <button class="ghost" id="nreset">Reset</button>
+        </div>
+
+        <div class="row">
+          <span class="lab">Fusion dots</span>
+          <button id="tDots" aria-pressed="true">On</button>
+        </div>
+
+        <p class="note">Both panes share one transform, so magnification and pan are identical by construction — the halves stay registered at any zoom. <b>Vertical trim</b> and <b>window shift</b> offset the right eye only, for pairs that were cut slightly off.</p>
       </div>
 
       <div class="row">
-        <span class="lab">Vertical trim</span>
-        <input type="range" id="alignY" min="-60" max="60" step="1" value="0" aria-label="Vertical trim">
-        <span class="val" id="alignYVal">0 px</span>
-      </div>
-
-      <div class="row">
-        <span class="lab">Window shift</span>
-        <input type="range" id="alignX" min="-120" max="120" step="1" value="0" aria-label="Horizontal window shift">
-        <span class="val" id="alignXVal">0 px</span>
-      </div>
-
-      <div class="nudge">
-        <button class="ghost" id="nx-">◀ X</button>
-        <button class="ghost" id="nx+">X ▶</button>
-        <button class="ghost" id="ny-">▲ Y</button>
-        <button class="ghost" id="ny+">Y ▼</button>
-        <button class="ghost" id="nreset">Reset</button>
-      </div>
-
-      <div class="row">
-        <span class="lab">Fusion dots</span>
-        <button id="tDots" aria-pressed="true">On</button>
         <span class="lab">Keep zoom</span>
         <button id="tKeep" aria-pressed="true">On</button>
       </div>
+    </div>
 
-      <p class="note">Both panes share one transform, so magnification and pan are identical by construction — the halves stay registered at any zoom. <b>Vertical trim</b> and <b>window shift</b> offset the right eye only, for pairs that were cut slightly off.</p>
+    <div id="panelOpen" class="hid" role="menu" aria-label="Open from">
+      <h2>Open from</h2>
+      <button id="openGallery" role="menuitem">
+        <span>Photo gallery</span>
+        <span class="sub">Scroll through your photos and pick your pairs</span>
+      </button>
+      <button id="openDir" role="menuitem">
+        <span>Browse folders…</span>
+        <span class="sub">Load every image in a folder at once</span>
+      </button>
     </div>
   </footer>
 
@@ -393,6 +436,7 @@
 
   <input type="file" id="fileFolder" webkitdirectory directory multiple accept="image/*" class="hid">
   <input type="file" id="filePick" multiple accept="image/*" class="hid">
+  <input type="file" id="fileZip" accept=".zip,application/zip,application/x-zip-compressed" class="hid">
 </div>
 
 <script>
@@ -406,7 +450,7 @@
   var imgA = document.getElementById('imgA'), imgB = document.getElementById('imgB');
 
   /* ── persisted settings ─────────────────────────────────── */
-  var S = { swap:true, dots:true, keep:true, stagew:100, ax:0, ay:0 };
+  var S = { swap:true, mono:false, dots:true, keep:true, stagew:100, ax:0, ay:0 };
   try{
     var raw = localStorage.getItem('tps.v1');
     if(raw) S = Object.assign(S, JSON.parse(raw));
@@ -580,8 +624,8 @@
   function setSlug(){
     var p = plates[idx] || {name:'—'};
     document.getElementById('slugName').textContent = p.name;
-    document.getElementById('slugDim').textContent =
-      natW ? (natW + '×' + natH + '  ·  ' + halfW + '×' + natH + ' per eye') : '—';
+    document.getElementById('slugDim').textContent = !natW ? '—' :
+      (S.mono ? (natW + '×' + natH) : (natW + '×' + natH + '  ·  ' + halfW + '×' + natH + ' per eye'));
     document.getElementById('counter').innerHTML = (idx+1) + ' / ' + plates.length + '<small>PLATE</small>';
     document.getElementById('plateNo').textContent = 'PLATE ' + (idx+1) + ' / ' + plates.length;
     var seek = document.getElementById('seek');
@@ -603,7 +647,7 @@
     var probe = new Image();
     probe.onload = function(){
       natW = probe.naturalWidth; natH = probe.naturalHeight;
-      halfW = Math.floor(natW/2);
+      halfW = S.mono ? natW : Math.floor(natW/2);
       imgA.src = imgB.src = p.url;
       imgA.style.width = imgB.style.width = natW+'px';
       imgA.style.height = imgB.style.height = natH+'px';
@@ -625,6 +669,13 @@
   }
 
   function applySwap(){
+    if(S.mono){
+      imgA.style.left = '0px';
+      paneA.dataset.eye = 'IMAGE';
+      paneA.dataset.tab = '';
+      document.getElementById('modeTag').textContent = 'Single image';
+      return;
+    }
     // Cross-eyed: the LEFT pane must carry the RIGHT half of the pair.
     imgA.style.left = (S.swap ? -halfW : 0) + 'px';
     imgB.style.left = (S.swap ? 0 : -halfW) + 'px';
@@ -636,6 +687,22 @@
     document.getElementById('swap').textContent = S.swap ? 'Cross-eye' : 'Parallel';
     document.getElementById('swap').appendChild(Object.assign(document.createElement('span'),{className:'k',textContent:'X'}));
     document.getElementById('swap').setAttribute('aria-pressed', String(S.swap));
+  }
+
+  function applyMono(){
+    app.classList.toggle('mono', !!S.mono);
+    var b = document.getElementById('mono');
+    b.textContent = S.mono ? 'Single image' : 'Stereo pair';
+    b.appendChild(Object.assign(document.createElement('span'),{className:'k',textContent:'M'}));
+    b.setAttribute('aria-pressed', String(!!S.mono));
+    if(natW){
+      // re-split (or un-split) the image already on screen without a re-fetch
+      halfW = S.mono ? natW : Math.floor(natW/2);
+      applySwap();
+      measure();
+      view.s = fitS;
+      render(); setSlug();
+    }
   }
 
   var IMG_RE = /\.(jpe?g|png|webp|gif|bmp|avif|jfif)$/i;
@@ -653,6 +720,42 @@
     });
     idx = 0; show(0, 'first');
     toast(plates.length + (plates.length === 1 ? ' plate loaded' : ' plates loaded'));
+  }
+
+  /* ── zip: unpack a .zip already on the viewer's device — no network
+     request is made or needed, since JSZip works entirely on local bytes.
+     (A page published from here can't fetch an arbitrary third-party URL
+     itself — its sandbox blocks outbound requests to other sites — so
+     "paste a URL" isn't offered; downloading the zip once and picking it
+     here is the working equivalent.)                                    */
+  function mimeFor(name){
+    var ext = (/\.([a-z0-9]+)$/i.exec(name) || [,''])[1].toLowerCase();
+    return { jpg:'image/jpeg', jpeg:'image/jpeg', png:'image/png', webp:'image/webp',
+      gif:'image/gif', bmp:'image/bmp', avif:'image/avif', jfif:'image/jpeg' }[ext]
+      || 'application/octet-stream';
+  }
+  function unzipFile(file){
+    if(!window.JSZip){ toast('Zip support failed to load — check your connection and reload'); return; }
+    toast('Unpacking ' + file.name + '…');
+    JSZip.loadAsync(file).then(function(zip){
+      var entries = [];
+      zip.forEach(function(path, entry){ if(!entry.dir && IMG_RE.test(entry.name)) entries.push(entry); });
+      if(!entries.length){ toast('No images found in ' + file.name); return null; }
+      entries.sort(function(a,b){ return coll.compare(a.name, b.name); });
+      return Promise.all(entries.map(function(entry){
+        return entry.async('arraybuffer').then(function(buf){
+          return { name: entry.name, url: URL.createObjectURL(new Blob([buf], {type: mimeFor(entry.name)})), revoke: true };
+        });
+      }));
+    }).then(function(newPlates){
+      if(!newPlates) return;
+      plates.forEach(function(p){ if(p.revoke) URL.revokeObjectURL(p.url); });
+      plates = newPlates;
+      idx = 0; show(0, 'first');
+      toast(plates.length + (plates.length === 1 ? ' plate' : ' plates') + ' unpacked from ' + file.name);
+    }).catch(function(err){
+      toast('Could not read that zip' + (err && err.message ? ' — ' + err.message : ''));
+    });
   }
 
   /* ── pointer: pan, pinch, swipe, double-tap ─────────────── */
@@ -759,13 +862,49 @@
     render();
   });
   on('swap', function(){ S.swap = !S.swap; applySwap(); save(); });
+  on('mono', function(){ S.mono = !S.mono; applyMono(); save(); });
 
   document.getElementById('seek').addEventListener('input', function(e){ show(+e.target.value); });
 
-  on('openFolder', function(){ document.getElementById('fileFolder').click(); });
-  on('openFiles',  function(){ document.getElementById('filePick').click(); });
+  /* Folder…
+     A web page can't add the phone's photo gallery to the system's own
+     folder browser, so on touch devices the Folder button first asks where
+     to open from: the gallery (the same scrollable photo picker Files…
+     uses) or a real folder. On desktop it opens the folder picker directly. */
+  var openPanel = document.getElementById('panelOpen');
+  var folderBtn = document.getElementById('openFolder');
+  var coarse = !!(window.matchMedia && window.matchMedia('(pointer: coarse)').matches);
+  function closeOpenPanel(){
+    openPanel.classList.add('hid');
+    folderBtn.setAttribute('aria-expanded', 'false');
+  }
+  on('openFolder', function(){
+    if(!coarse){ document.getElementById('fileFolder').click(); return; }
+    var willOpen = openPanel.classList.contains('hid');
+    document.getElementById('panelSet').classList.add('hid');
+    document.getElementById('settings').setAttribute('aria-pressed', 'false');
+    if(willOpen){
+      // sit just above the rail, wherever it wrapped to on a narrow screen
+      openPanel.style.bottom = (document.querySelector('footer').offsetHeight + 8) + 'px';
+      openPanel.classList.remove('hid');
+      folderBtn.setAttribute('aria-expanded', 'true');
+    } else closeOpenPanel();
+  });
+  on('openGallery', function(){ closeOpenPanel(); document.getElementById('filePick').click(); });
+  on('openDir',     function(){ closeOpenPanel(); document.getElementById('fileFolder').click(); });
+  on('openFiles',   function(){ document.getElementById('filePick').click(); });
+  document.addEventListener('pointerdown', function(e){
+    if(openPanel.classList.contains('hid')) return;
+    if(openPanel.contains(e.target) || folderBtn.contains(e.target)) return;
+    closeOpenPanel();
+  }, true);
   document.getElementById('fileFolder').addEventListener('change', function(e){ loadFiles(e.target.files); e.target.value=''; });
   document.getElementById('filePick').addEventListener('change',  function(e){ loadFiles(e.target.files); e.target.value=''; });
+  on('openZip', function(){ document.getElementById('fileZip').click(); });
+  document.getElementById('fileZip').addEventListener('change', function(e){
+    var f = e.target.files[0]; e.target.value = '';
+    if(f) unzipFile(f);
+  });
 
   /* Fullscreen.
      A published artifact runs inside a sandboxed frame, and many hosts
@@ -831,6 +970,7 @@
 
   var setBtn = document.getElementById('settings'), setPanel = document.getElementById('panelSet');
   on('settings', function(){
+    closeOpenPanel();
     var open = setPanel.classList.toggle('hid');
     setBtn.setAttribute('aria-pressed', String(!open));
   });
@@ -898,11 +1038,13 @@
       case '-': case '_': zoomCentre(1/1.35); break;
       case '0': fitView(); break;
       case '1': document.getElementById('one').click(); break;
-      case 'x': case 'X': document.getElementById('swap').click(); break;
+      case 'x': case 'X': if(!S.mono) document.getElementById('swap').click(); break;
+      case 'm': case 'M': document.getElementById('mono').click(); break;
       case 'f': case 'F': document.getElementById('full').click(); break;
       case 'h': case 'H': app.classList.toggle('hidechrome'); break;
       case 'd': case 'D': document.getElementById('tDots').click(); break;
       case 'Escape':
+        closeOpenPanel();
         setPanel.classList.add('hid'); setBtn.setAttribute('aria-pressed','false');
         if(app.classList.contains('maxed')){ if(fsElement()) fsExit(); setMax(false); }
         else app.classList.remove('hidechrome');
@@ -925,6 +1067,10 @@
   window.addEventListener('drop', function(e){
     e.preventDefault(); dragDepth = 0; app.classList.remove('drop');
     var items = e.dataTransfer.items;
+    if(items && items.length === 1 && items[0].webkitGetAsEntry){
+      var only = items[0].webkitGetAsEntry();
+      if(only && only.isFile && /\.zip$/i.test(only.name)){ only.file(unzipFile); return; }
+    }
     if(items && items.length && items[0].webkitGetAsEntry){
       var entries = [], out = [], pending = 1;
       for(var i=0;i<items.length;i++){ var en = items[i].webkitGetAsEntry(); if(en) entries.push(en); }
@@ -951,13 +1097,22 @@
       entries.forEach(function(en){ walk(en, ''); });
       done();
     } else if(e.dataTransfer.files){
-      loadFiles(e.dataTransfer.files);
+      var dropped = e.dataTransfer.files;
+      if(dropped.length === 1 && /\.zip$/i.test(dropped[0].name)){ unzipFile(dropped[0]); return; }
+      loadFiles(dropped);
     }
   });
 
   /* ── boot ───────────────────────────────────────────────── */
   stage.style.setProperty('--stagew', S.stagew+'%');
   document.getElementById('dots').style.setProperty('--stagew', S.stagew+'%');
+  app.classList.toggle('mono', !!S.mono);
+  (function(){
+    var b = document.getElementById('mono');
+    b.textContent = S.mono ? 'Single image' : 'Stereo pair';
+    b.appendChild(Object.assign(document.createElement('span'),{className:'k',textContent:'M'}));
+    b.setAttribute('aria-pressed', String(!!S.mono));
+  })();
   applySwap();
 
   var ro = new ResizeObserver(function(){
@@ -974,5 +1129,5 @@
   show(0, 'first');
 })();
 </script>
-</body>
-</html>
+
+</body></html>
