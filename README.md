@@ -1,35 +1,50 @@
 # Twin Pane Stereoscope
 
-A single-file, single-page viewer for side-by-side stereo images. Splits the image down the middle into two panes and drives both off **one shared transform** — pan and zoom are always identical on both sides, so the pair stays registered at any magnification, from fit-to-frame to pixel level.
+A single-page viewer for side-by-side stereo pairs **and** ordinary single pictures. In stereo mode it splits an image down the middle into two panes and drives both off **one shared transform** — pan and zoom stay identical, so the pair stays registered at any magnification.
 
-Open `index.html` in any browser — no build step, no dependencies. It also works as-is on GitHub Pages.
+Open `index.html` in a browser (needs `app.js` next to it). No build step. Works on GitHub Pages. Zip unpacking uses JSZip from a CDN.
 
-## Features
+## Viewing modes
 
-- **Locked stereo zoom/pan** — pinch, wheel, or drag on either pane; both move together by construction.
-- **Cross-eyed or parallel viewing** — `X` swaps which half goes in which pane.
-- **Folder / file browsing** — point it at a folder of stereo pairs (or drag one onto the page) and step through them with arrow keys, a seek bar, or swipe.
-- **Slide show** — start/stop from the rail or `Space`. Set how many seconds each plate stays on screen (1–120). Loops the loaded set. Hold is remembered.
-- **Keep zoom across plates** — stay zoomed into the same spot as you move between images.
-- **Fine alignment** — vertical trim and horizontal window-shift for pairs that were cut slightly off, plus fusion dots as a free-viewing aid.
-- **Maximised / fullscreen view**, hideable chrome, full keyboard control.
+- **Stereo pair** (default) — image is treated as left|right halves. `X` swaps them for cross-eyed vs parallel / VR viewing.
+- **Single image** — press `M` or the **Stereo pair** button on the rail. The second pane, fusion dots, and alignment tools drop away. The whole file is one picture: useful for normal photos, not just 3D plates. Slide show, folder, files, and zip still work in this mode.
+
+## Load images
+
+- **Folder…** — every image in a folder (on a phone this first asks gallery vs folder).
+- **Files…** — pick individual pictures.
+- **Zip…** — pick a `.zip` already on the device. It is unpacked locally in the browser (no upload). jpeg, png, webp, gif, bmp, avif inside the archive are loaded in name order, including files in subfolders.
+- **Drag and drop** a folder, loose images, or a `.zip` onto the page.
+
+## Slide show
+
+- **Slide show** on the rail, or `Space`, starts and stops.
+- **Hold** is seconds between plates (1–120). Changing it while running restarts the timer. The value is remembered.
+- Needs at least two loaded images. Loops the set. Arrow keys and the seek bar still work; the timer arms again after each plate.
+
+## Other features
+
+- Locked zoom/pan across both eyes in stereo mode.
+- Keep zoom when stepping between plates.
+- Vertical trim and window shift for pairs cut slightly off.
+- Fusion dots as a free-viewing aid.
+- Maximise / fullscreen, hideable chrome.
 
 ## Controls
 
 | Key | Action |
 |---|---|
-| `\u2190` `\u2192` | Previous / next plate |
+| `Left` `Right` | Previous / next plate |
 | `Space` | Start / stop slide show |
-| `+` `\u2212` | Zoom in / out |
+| `+` `-` | Zoom in / out |
 | `0` | Fit to frame |
 | `1` | Native (1:1) pixels |
 | `X` | Swap cross-eyed / parallel |
+| `M` | Stereo pair / single image |
 | `F` | Fullscreen / maximise |
 | `H` | Hide all chrome |
 | `D` | Toggle fusion dots |
 | `Shift` + arrows | Nudge right-eye alignment |
 | `Esc` | Exit fullscreen / show chrome |
 
-The **Hold** field next to Slide show is seconds between plates.
-
-Opens on a generated depth-test card by default — free-view it to confirm alignment before loading your own images.
+Opens on a generated depth-test card. Load your own files before starting a slide show.
