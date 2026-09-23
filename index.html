@@ -1,1 +1,159 @@
-PLACEHOLDER_USE_LOCAL_FILE
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1"><style>:root{color-scheme:light}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#faf9f5;color:#141413}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Twin Pane Stereoscope</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<style>
+  :root{
+    --ink: #0a0b0d; --panel: #131519; --panel-hi: #1c1f25;
+    --line: #282c34; --line-hi: #3a404a; --mute: #7d858f; --text: #e6e8ec;
+    --ochre: #d2a24c; --ochre-dk: #8a6a2e; --eye-l: #e0604a; --eye-r: #4aa6c4;
+    --rail: 52px; --gap: 10px;
+    --f-disp: "Barlow Condensed", "Oswald", "Arial Narrow", sans-serif;
+    --f-ui: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+    --f-num: "IBM Plex Mono", ui-monospace, "SF Mono", monospace;
+  }
+  *{ box-sizing: border-box; }
+  body{ background: var(--ink); }
+  #app{ position:fixed; inset:0; display:flex; flex-direction:column; background:var(--ink); color:var(--text); font-family:var(--f-ui); overflow:hidden; overscroll-behavior:none; -webkit-user-select:none; user-select:none; }
+  #app.hidechrome .chrome{ opacity:0; pointer-events:none; }
+  #app.maxed header, #app.maxed footer .rail{ display:none; }
+  #app.maxed #stage{ padding:0; gap:2px; }
+  #app.maxed .pane{ border:none; }
+  #app.maxed #dots{ padding:0; gap:2px; }
+  #app.maxed footer{ border-top:none; background:transparent; }
+  #exitMax{ position:absolute; right:10px; top:10px; z-index:45; background:rgba(19,21,25,.86); border:1px solid var(--line-hi); font-family:var(--f-disp); font-size:12px; font-weight:500; letter-spacing:.14em; text-transform:uppercase; }
+  #app:not(.maxed) #exitMax{ display:none; }
+  #app.maxed.hidechrome #exitMax{ opacity:0; pointer-events:none; }
+  .chrome{ transition:opacity .18s ease; }
+  #app.mono #paneB, #app.mono #dots, #app.mono #grpSwap, #app.mono #secStereo{ display:none; }
+  #app.mono .pane{ max-width:100%; flex:1 1 100%; }
+  header{ flex:0 0 auto; display:flex; align-items:center; gap:14px; padding:0 14px; height:42px; background:var(--panel); border-bottom:1px solid var(--line); }
+  .mark{ display:flex; align-items:baseline; gap:7px; font-family:var(--f-disp); font-size:17px; font-weight:600; letter-spacing:.13em; text-transform:uppercase; color:var(--text); white-space:nowrap; }
+  .mark b{ color:var(--ochre); font-weight:600; }
+  .plate-no{ font-family:var(--f-num); font-size:10px; color:var(--mute); letter-spacing:.04em; }
+  .slug{ flex:1 1 auto; min-width:0; display:flex; align-items:baseline; gap:10px; font-family:var(--f-num); font-size:12px; color:var(--mute); }
+  .slug .name{ color:var(--text); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .slug .dim{ font-variant-numeric:tabular-nums; white-space:nowrap; }
+  .mode-tag{ flex:0 0 auto; font-family:var(--f-disp); font-size:12px; font-weight:500; letter-spacing:.16em; text-transform:uppercase; color:var(--ochre); border:1px solid var(--ochre-dk); border-radius:2px; padding:3px 8px 2px; }
+  #stage{ flex:1 1 auto; min-height:0; display:flex; gap:var(--gap); justify-content:center; padding:var(--gap); touch-action:none; position:relative; }
+  .pane{ position:relative; flex:1 1 0; min-width:0; max-width:calc(var(--stagew, 100%) / 2); background:#000; overflow:hidden; border:1px solid var(--line); cursor:grab; }
+  .pane.dragging{ cursor:grabbing; }
+  .frame{ position:absolute; top:0; left:0; transform-origin:0 0; will-change:transform; overflow:hidden; }
+  .frame img{ position:absolute; top:0; display:block; max-width:none; max-height:none; image-rendering:-webkit-optimize-contrast; }
+  .pane::after{ content:attr(data-eye); position:absolute; left:6px; bottom:5px; font-family:var(--f-disp); font-size:11px; font-weight:600; letter-spacing:.14em; padding:1px 5px 0; border-radius:2px; color:#06070a; background:var(--tab, #666); opacity:.82; pointer-events:none; }
+  .pane[data-tab="L"]{ --tab: var(--eye-l); }
+  .pane[data-tab="R"]{ --tab: var(--eye-r); }
+  #dots{ position:absolute; left:0; right:0; top:2px; display:flex; gap:var(--gap); justify-content:center; padding:0 var(--gap); pointer-events:none; }
+  #dots span{ flex:1 1 0; max-width:calc(var(--stagew, 100%) / 2); display:flex; justify-content:center; }
+  #dots span::before{ content:""; width:7px; height:7px; border-radius:50%; background:var(--ochre); opacity:.9; }
+  #app:not(.dots) #dots{ display:none; }
+  footer{ flex:0 0 auto; background:var(--panel); border-top:1px solid var(--line); }
+  .rail{ display:flex; align-items:center; gap:6px; padding:7px 10px; min-height:var(--rail); flex-wrap:wrap; }
+  .grp{ display:flex; align-items:center; gap:4px; padding:3px; border:1px solid var(--line); border-radius:3px; background:#0e1013; }
+  .sep{ flex:1 1 auto; }
+  button{ font-family:var(--f-ui); font-size:13px; color:var(--text); background:var(--panel-hi); border:1px solid transparent; border-radius:2px; padding:6px 10px; min-height:32px; cursor:pointer; line-height:1; display:inline-flex; align-items:center; gap:6px; }
+  button:hover{ background:#262a31; }
+  button[aria-pressed="true"]{ background:var(--ochre); color:#14100a; }
+  button.ghost{ background:transparent; }
+  button .k{ font-family:var(--f-num); font-size:10px; color:var(--mute); }
+  .icon{ width:34px; padding:6px 0; justify-content:center; font-size:15px; }
+  .readout{ font-family:var(--f-num); font-size:12px; font-variant-numeric:tabular-nums; color:var(--text); min-width:62px; text-align:center; padding:0 4px; }
+  .readout small{ display:block; font-size:9px; color:var(--mute); letter-spacing:.08em; }
+  label.lab{ font-family:var(--f-disp); font-size:12px; font-weight:500; letter-spacing:.14em; text-transform:uppercase; color:var(--mute); white-space:nowrap; }
+  input[type="range"]{ accent-color:var(--ochre); height:22px; cursor:pointer; }
+  #seek{ flex:1 1 140px; min-width:90px; }
+  #hold{ width:52px; height:28px; background:#0e1013; color:var(--text); border:1px solid var(--line); border-radius:2px; font-family:var(--f-num); font-size:12px; text-align:center; padding:0 4px; }
+  #grpPlay .lab{ padding:0 2px 0 6px; }
+  #panelSet, #panelOpen{ position:absolute; right:10px; bottom:calc(var(--rail) + 12px); background:var(--panel); border:1px solid var(--line-hi); border-radius:4px; box-shadow:0 18px 44px rgba(0,0,0,.66); padding:14px; z-index:40; display:grid; gap:13px; }
+  #panelSet{ width:min(320px, calc(100vw - 20px)); }
+  #panelOpen{ width:min(300px, calc(100vw - 20px)); z-index:42; padding:12px; gap:8px; }
+  #panelSet h2, #panelOpen h2{ margin:0; font-family:var(--f-disp); font-size:13px; font-weight:600; letter-spacing:.18em; text-transform:uppercase; color:var(--ochre); }
+  #panelOpen button{ flex-direction:column; align-items:flex-start; gap:4px; padding:10px 12px; min-height:52px; text-align:left; background:var(--panel-hi); }
+  #panelOpen .sub{ font-size:11px; line-height:1.3; color:var(--mute); }
+  .row{ display:flex; align-items:center; gap:10px; justify-content:space-between; }
+  .row input[type="range"]{ flex:1 1 auto; min-width:0; }
+  #secStereo{ display:grid; gap:13px; }
+  .val{ font-family:var(--f-num); font-size:11px; color:var(--mute); font-variant-numeric:tabular-nums; min-width:40px; text-align:right; }
+  .nudge{ display:grid; grid-template-columns:repeat(5, 1fr); gap:4px; }
+  .note{ font-size:11.5px; line-height:1.5; color:var(--mute); border-left:2px solid var(--line-hi); padding-left:9px; margin:0; }
+  #veil{ position:absolute; inset:var(--gap); z-index:50; display:none; place-items:center; background:rgba(10,11,13,.9); border:2px dashed var(--ochre); font-family:var(--f-disp); font-size:20px; letter-spacing:.16em; text-transform:uppercase; color:var(--ochre); }
+  #app.drop #veil{ display:grid; }
+  #toast{ position:absolute; left:50%; bottom:calc(var(--rail) + 18px); transform:translateX(-50%); background:var(--panel-hi); border:1px solid var(--line-hi); border-radius:3px; padding:8px 14px; font-family:var(--f-num); font-size:12px; color:var(--text); z-index:60; opacity:0; pointer-events:none; }
+  #toast.on{ opacity:1; }
+  .hid{ display:none !important; }
+</style>
+<div id="app" class="dots">
+  <header class="chrome">
+    <span class="mark">Twin&nbsp;Pane <b>Stereoscope</b></span>
+    <span class="plate-no" id="plateNo">PLATE 1 / 1</span>
+    <span class="slug"><span class="name" id="slugName">Depth test card</span><span class="dim" id="slugDim">—</span></span>
+    <span class="mode-tag" id="modeTag">Cross-eyed</span>
+  </header>
+  <div id="stage">
+    <div class="pane" id="paneA" data-eye="LEFT EYE" data-tab="L"><div class="frame" id="frameA"><img id="imgA" alt="Left half"></div></div>
+    <div class="pane" id="paneB" data-eye="RIGHT EYE" data-tab="R"><div class="frame" id="frameB"><img id="imgB" alt="Right half"></div></div>
+    <div id="dots" aria-hidden="true"><span></span><span></span></div>
+    <button id="exitMax" class="chrome">Exit</button>
+    <div id="veil">Drop images, a folder, or a .zip</div>
+  </div>
+  <footer class="chrome">
+    <div class="rail">
+      <div class="grp">
+        <button class="icon" id="prev">&#9664;</button>
+        <span class="readout" id="counter">1 / 1<small>PLATE</small></span>
+        <button class="icon" id="next">&#9654;</button>
+      </div>
+      <div class="grp" id="grpPlay">
+        <button id="play" aria-pressed="false" title="Start slideshow (Space)">Slide show</button>
+        <label class="lab" for="hold">Hold</label>
+        <input type="number" id="hold" min="1" max="120" step="1" value="5" inputmode="numeric" aria-label="Seconds between plates">
+        <span class="val" id="holdVal">5 s</span>
+      </div>
+      <input type="range" id="seek" min="0" max="0" value="0" step="1" aria-label="Jump to plate" class="hid">
+      <div class="grp">
+        <button class="icon" id="zout">-</button>
+        <span class="readout" id="zoomRead">100%<small>MAGNIF</small></span>
+        <button class="icon" id="zin">+</button>
+        <button id="fit">Fit</button>
+        <button id="one">1:1</button>
+      </div>
+      <div class="grp" id="grpSwap"><button id="swap" aria-pressed="true">Cross-eye</button></div>
+      <div class="grp"><button id="mono">Stereo pair</button></div>
+      <span class="sep"></span>
+      <div class="grp">
+        <button id="openFolder">Folder…</button>
+        <button id="openFiles" class="ghost">Files…</button>
+        <button id="openZip" class="ghost">Zip…</button>
+      </div>
+      <div class="grp">
+        <button class="icon" id="settings" aria-pressed="false">&#9881;</button>
+        <button class="icon" id="full">&#9974;</button>
+        <button class="icon" id="hide">&#9634;</button>
+      </div>
+    </div>
+    <div id="panelSet" class="hid">
+      <h2>Alignment & aids</h2>
+      <div id="secStereo">
+        <div class="row"><span class="lab">Stage width</span><input type="range" id="stagew" min="40" max="100" step="1" value="100"><span class="val" id="stagewVal">100%</span></div>
+        <div class="row"><span class="lab">Vertical trim</span><input type="range" id="alignY" min="-60" max="60" step="1" value="0"><span class="val" id="alignYVal">0 px</span></div>
+        <div class="row"><span class="lab">Window shift</span><input type="range" id="alignX" min="-120" max="120" step="1" value="0"><span class="val" id="alignXVal">0 px</span></div>
+        <div class="nudge"><button class="ghost" id="nx-">X-</button><button class="ghost" id="nx+">X+</button><button class="ghost" id="ny-">Y-</button><button class="ghost" id="ny+">Y+</button><button class="ghost" id="nreset">Reset</button></div>
+        <div class="row"><span class="lab">Fusion dots</span><button id="tDots" aria-pressed="true">On</button></div>
+        <p class="note">Both panes share one transform. Vertical trim and window shift offset the right eye only.</p>
+      </div>
+      <div class="row"><span class="lab">Keep zoom</span><button id="tKeep" aria-pressed="true">On</button></div>
+    </div>
+    <div id="panelOpen" class="hid" role="menu">
+      <h2>Open from</h2>
+      <button id="openGallery"><span>Photo gallery</span><span class="sub">Pick pairs from photos</span></button>
+      <button id="openDir"><span>Browse folders…</span><span class="sub">Load every image in a folder</span></button>
+    </div>
+  </footer>
+  <div id="toast" role="status"></div>
+  <input type="file" id="fileFolder" webkitdirectory directory multiple accept="image/*" class="hid">
+  <input type="file" id="filePick" multiple accept="image/*" class="hid">
+  <input type="file" id="fileZip" accept=".zip,application/zip" class="hid">
+</div>
+<script src="app.js"></script>
+</body></html>
