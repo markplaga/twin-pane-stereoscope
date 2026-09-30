@@ -22,9 +22,10 @@
   #app.maxed .pane{ border:none; }
   #app.maxed #dots{ padding:0; gap:2px; }
   #app.maxed footer{ border-top:none; background:transparent; }
-  #exitMax{ position:absolute; right:10px; top:10px; z-index:45; background:rgba(19,21,25,.86); border:1px solid var(--line-hi); font-family:var(--f-disp); font-size:12px; font-weight:500; letter-spacing:.14em; text-transform:uppercase; }
+  #exitMax{ position:absolute; right:0; top:0; z-index:45; width:72px; height:72px; min-height:0; padding:10px 12px; align-items:flex-start; justify-content:flex-end; background:transparent; border:none; border-radius:0; color:var(--text); opacity:0; font-family:var(--f-disp); font-size:12px; font-weight:500; letter-spacing:.14em; text-transform:uppercase; }
+  #exitMax:hover, #exitMax:focus-visible{ opacity:1; background:linear-gradient(225deg, rgba(10,11,13,.8), rgba(10,11,13,0) 70%); }
   #app:not(.maxed) #exitMax{ display:none; }
-  #app.maxed.hidechrome #exitMax{ opacity:0; pointer-events:none; }
+  #app.hidechrome #exitMax{ pointer-events:auto; }
   .chrome{ transition:opacity .18s ease; }
   #app.mono #paneB, #app.mono #dots, #app.mono #grpSwap, #app.mono #secStereo{ display:none; }
   #app.mono .pane{ max-width:100%; flex:1 1 100%; }
@@ -41,7 +42,8 @@
   .pane.dragging{ cursor:grabbing; }
   .frame{ position:absolute; top:0; left:0; transform-origin:0 0; will-change:transform; overflow:hidden; }
   .frame img{ position:absolute; top:0; display:block; max-width:none; max-height:none; image-rendering:-webkit-optimize-contrast; }
-  .pane::after{ content:attr(data-eye); position:absolute; left:6px; bottom:5px; font-family:var(--f-disp); font-size:11px; font-weight:600; letter-spacing:.14em; padding:1px 5px 0; border-radius:2px; color:#06070a; background:var(--tab, #666); opacity:.82; pointer-events:none; }
+  .pane::after{ content:attr(data-eye); position:absolute; left:6px; bottom:5px; font-family:var(--f-disp); font-size:11px; font-weight:600; letter-spacing:.14em; padding:1px 5px 0; border-radius:2px; color:#06070a; background:var(--tab, #666); opacity:.82; pointer-events:none; transition:opacity 1.4s ease; }
+  #app.tabs-off .pane::after{ opacity:0; }
   .pane[data-tab="L"]{ --tab: var(--eye-l); }
   .pane[data-tab="R"]{ --tab: var(--eye-r); }
   #dots{ position:absolute; left:0; right:0; top:2px; display:flex; gap:var(--gap); justify-content:center; padding:0 var(--gap); pointer-events:none; }
