@@ -91,7 +91,7 @@
   function fsExit(){ if(document.exitFullscreen) return document.exitFullscreen(); if(document.webkitExitFullscreen) return document.webkitExitFullscreen(); }
   function fsRequest(el){ var fn=el.requestFullscreen||el.webkitRequestFullscreen; if(!fn) return Promise.reject(); try{ return Promise.resolve(fn.call(el,{navigationUI:'hide'})); }catch(err){ return Promise.reject(err); } }
   function relayout(){ requestAnimationFrame(function(){ var ratio=fitS?view.s/fitS:1; measure(); view.s=Math.min(maxS(),Math.max(fitS,fitS*ratio)); render(); }); }
-  function setMax(on){ app.classList.toggle('maxed', on); relayout(); }
+  function setMax(on){ app.classList.toggle('maxed', on); relayout(); if(on) toast('Tap the top-right corner or press Esc to exit'); }
   on('full', function(){ if(app.classList.contains('maxed')){ if(fsElement()) fsExit(); setMax(false); return; } setMax(true); fsRequest(app).catch(function(){ toast('Maximised instead. Esc to exit.'); }); });
   on('exitMax', function(){ document.getElementById('full').click(); });
   ['fullscreenchange','webkitfullscreenchange'].forEach(function(t){ document.addEventListener(t, function(){ if(!fsElement()&&app.classList.contains('maxed')) setMax(false); else relayout(); }); });
@@ -123,6 +123,8 @@
   S.hold=clampHold(S.hold);
   document.getElementById('hold').value=S.hold;
   paintPlay();
+  // eye tabs show on first display, then fade away after 10 seconds
+  setTimeout(function(){ app.classList.add('tabs-off'); }, 10000);
   plates=[{ name:'Depth test card (sample)', url:sampleURL(), revoke:false }];
   show(0,'first');
 })();
