@@ -154,12 +154,14 @@
       <h2>Open from</h2>
       <button id="openGallery"><span>Photo gallery</span><span class="sub">Pick pairs from photos</span></button>
       <button id="openDir"><span>Browse folders…</span><span class="sub">Load every image in a folder</span></button>
+      <button id="openAny"><span>Zip files or pictures…</span><span class="sub">Pick one or more zips, or several images</span></button>
     </div>
   </footer>
   <div id="toast" role="status"></div>
   <input type="file" id="fileFolder" webkitdirectory directory multiple accept="image/*" class="hid">
   <input type="file" id="filePick" multiple accept="image/*" class="hid">
-  <input type="file" id="fileZip" accept=".zip,application/zip" class="hid">
+  <input type="file" id="fileZip" multiple class="hid">
+  <input type="file" id="fileAny" multiple accept="image/*,.zip,application/zip,application/x-zip-compressed" class="hid">
 </div>
 <script src="app.js"></script>
 </body></html>
