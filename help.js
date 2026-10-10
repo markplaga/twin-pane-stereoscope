@@ -119,7 +119,7 @@
         <li><b>Swipe</b> left or right on the pictures. Swiping moves between plates only when you are fully zoomed out, so it never fights with panning.</li>
         <li>The <b>slider</b> in the bar jumps straight to any plate.</li>
         <li>Going past the last plate wraps to the first. (With several zips, it moves to the next zip instead. See <i>Zip files</i>.)</li>
-        <li>In <b>full screen</b>, tapping the lower three quarters of the screen also moves: left half = previous, right half = next.</li>
+        <li>In <b>full screen</b>, tapping the lower four fifths of the screen also moves: left half = previous, right half = next.</li>
       </ul>
       <h3>Keep zoom</h3>
       <p>With <b>Keep zoom</b> on (settings ⚙, on by default), stepping to the next plate keeps the same relative zoom and centre. Inspect the same detail across a series. Turn it off to open each picture fitted to the screen.</p>
@@ -144,8 +144,8 @@
       <p>Press <b>⛶</b> or <kbd>F</kbd>. The app hides its bars and fills the screen with the pictures. If your browser allows real fullscreen it uses it; otherwise it “maximises” inside the page.</p>
       <ul>
         <li><b>Exit:</b> tap or click the <b>top-right corner</b> (an invisible button), or press <kbd>Esc</kbd> or <kbd>F</kbd>.</li>
-        <li><b>Previous / next:</b> tap the <b>lower three quarters</b> of the screen: left half goes back, right half goes forward. Nothing is drawn on screen.</li>
-        <li><b>Zoom and pan still work.</b> Drag and pinch as usual. Double-tap-to-zoom works in the top quarter of the screen only, because taps below it change plates.</li>
+        <li><b>Previous / next:</b> tap the <b>lower four fifths</b> of the screen: left half goes back, right half goes forward. Nothing is drawn on screen.</li>
+        <li><b>Zoom and pan still work.</b> Drag and pinch as usual. Double-tap-to-zoom works in the top fifth of the screen only, because taps below it change plates.</li>
       </ul>
       <div class="tip">If a page title or browser bar stays visible in full screen, the app is running inside another page or app that doesn’t allow real fullscreen. Opening the app directly in a normal browser (for example Chrome) gives true full screen.</div>
       <h3>Hide controls</h3>
@@ -176,7 +176,7 @@
         <tr><td>Drag</td><td>Pan (when zoomed in)</td></tr>
         <tr><td>Swipe left / right</td><td>Next / previous plate (when zoomed out)</td></tr>
         <tr><td>Double-tap</td><td>Zoom in about 3×, or back to Fit</td></tr>
-        <tr><td>Tap, lower ¾ (full screen)</td><td>Left half = previous, right half = next</td></tr>
+        <tr><td>Tap, lower ⅘ (full screen)</td><td>Left half = previous, right half = next</td></tr>
         <tr><td>Tap, top-right corner (full screen)</td><td>Exit full screen</td></tr>
       </table>
 
