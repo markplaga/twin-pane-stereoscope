@@ -157,7 +157,7 @@
       <ul>
         <li>Choose your Chromecast from the list that appears. The button reads <b>Casting</b> while connected. Press it again to stop.</li>
         <li>Pictures are sent straight from your device to the TV over your Wi-Fi. Both must be on the same network.</li>
-        <li>You need Chrome (on Android or a computer) and the page must be opened over <b>https</b> (for example from GitHub Pages). In browsers that cannot cast pages the button is dimmed and tells you so.</li>
+        <li>You need Chrome (on Android or a computer) and the page must be opened over <b>https</b> (for example from GitHub Pages). The button only appears in browsers that can cast pages.</li>
         <li>The fusion dots and eye labels are not shown on the TV. The right-eye alignment nudge is.</li>
       </ul>
 
