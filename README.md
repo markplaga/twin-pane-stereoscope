@@ -2,7 +2,7 @@
 
 A single-page viewer for side-by-side stereo pairs **and** ordinary single pictures. In stereo mode it splits an image down the middle into two panes and drives both off **one shared transform** — pan and zoom stay identical, so the pair stays registered at any magnification.
 
-Open `index.html` in a browser (needs `app.js` and `help.js` next to it). No build step. Works on GitHub Pages. Zip unpacking uses JSZip from a CDN.
+Open `index.html` in a browser (needs `app.js`, `help.js` and `audio.js` next to it). No build step. Works on GitHub Pages. Zip unpacking uses JSZip from a CDN.
 
 Press **?** (or the **?** button on the rail) for the built-in manual.
 
@@ -29,11 +29,18 @@ Select several zips at once. The first opens immediately; each later zip is only
 - **Hold** is seconds between plates (1–120). Changing it while running restarts the timer. The value is remembered.
 - Needs at least two loaded images. Loops the set (and flows through multiple zips). Arrow keys and the seek bar still work; the timer arms again after each plate.
 
+## Soundtrack
+
+- **♪ WAV…** in the bar loads an audio file (WAV, or usually MP3, M4A, OGG, FLAC) that plays while you view. It stays on the device; nothing is uploaded.
+- ▶ / ❚❚ (or `S`) plays and pauses; a slider sets volume; **Loop** repeats (on by default); ✕ removes it. Volume and loop are remembered.
+- The sound is independent of the pictures and keeps playing through stepping, slide show, mode changes and full screen. An audio file can also be dropped onto the page.
+- If it will not start by itself, press ▶ (browsers may require a tap first).
+
 ## Full screen
 
 - `F` or the full-screen button maximises the viewer.
-- Invisible controls: tap the **top-right corner** to exit; tap the **lower three quarters** of the screen to move — left half = previous, right half = next.
-- Double-tap-to-zoom works in the top quarter while in full screen.
+- Invisible controls: tap the **top-right corner** to exit; tap the **lower four fifths** of the screen to move — left half = previous, right half = next.
+- Double-tap-to-zoom works in the top fifth while in full screen.
 
 ## Other features
 
@@ -42,6 +49,7 @@ Select several zips at once. The first opens immediately; each later zip is only
 - Vertical trim and window shift for pairs cut slightly off.
 - Fusion dots as a free-viewing aid; eye labels fade after about ten seconds.
 - Hideable chrome.
+- Optional WAV soundtrack.
 - Built-in manual (**?**).
 
 ## Controls
@@ -50,6 +58,7 @@ Select several zips at once. The first opens immediately; each later zip is only
 |---|---|
 | `Left` `Right` | Previous / next plate |
 | `Space` | Start / stop slide show |
+| `S` | Play / pause soundtrack |
 | `+` `-` | Zoom in / out |
 | `0` | Fit to frame |
 | `1` | Native (1:1) pixels |
