@@ -35,7 +35,7 @@
   function measure(){ var r = paneA.getBoundingClientRect(); paneW = Math.max(1, r.width); paneH = Math.max(1, r.height); if(!halfW) return; fitS = Math.min(paneW/halfW, paneH/natH); }
   function maxS(){ return Math.max(fitS*14, 6); }
   function clamp(){ var w = halfW*view.s, h = natH*view.s; view.tx = (w <= paneW) ? (paneW-w)/2 : Math.min(0, Math.max(paneW-w, view.tx)); view.ty = (h <= paneH) ? (paneH-h)/2 : Math.min(0, Math.max(paneH-h, view.ty)); }
-  function render(){ if(!halfW) return; clamp(); var s = view.s; frameA.style.width = frameB.style.width = halfW+'px'; frameA.style.height = frameB.style.height = natH+'px'; frameA.style.transform = 'translate('+view.tx.toFixed(2)+'px,'+view.ty.toFixed(2)+'px) scale('+s+')'; frameB.style.transform = 'translate('+(view.tx+(S.pair?0:S.ax)*s).toFixed(2)+'px,'+(view.ty+(S.pair?0:S.ay)*s).toFixed(2)+'px) scale('+s+')'; var pct = Math.round(s*100); document.getElementById('zoomRead').innerHTML = pct+'%<small>'+(Math.abs(s-fitS)<fitS*0.005?'FIT':(Math.abs(s-1)<0.005?'NATIVE':'MAGNIF'))+'</small>'; }
+  function render(){ if(!halfW) return; clamp(); var s = view.s; frameA.style.width = frameB.style.width = halfW+'px'; frameA.style.height = frameB.style.height = natH+'px'; frameA.style.transform = 'translate('+view.tx.toFixed(2)+'px,'+view.ty.toFixed(2)+'px) scale('+s+')'; frameB.style.transform = 'translate('+(view.tx+(S.pair?0:S.ax)*s).toFixed(2)+'px,'+(view.ty+(S.pair?0:S.ay)*s).toFixed(2)+'px) scale('+s+')'; var pct = Math.round(s*100); document.getElementById('zoomRead').innerHTML = pct+'%<small>'+(Math.abs(s-fitS)<fitS*0.005?'FIT':(Math.abs(s-1)<0.005?'NATIVE':'MAGNIF'))+'</small>'; window.dispatchEvent(new Event('tps:view')); }
   function fitView(){ measure(); view.s = fitS; clamp(); render(); }
   function zoomAbout(px, py, factor){ var ns = Math.min(maxS(), Math.max(fitS, view.s*factor)); if(ns === view.s) return; var k = ns/view.s; view.tx = px - (px - view.tx)*k; view.ty = py - (py - view.ty)*k; view.s = ns; render(); }
   function zoomCentre(f){ zoomAbout(paneW/2, paneH/2, f); }
@@ -50,7 +50,7 @@
       function go(w2, h2){
         if(S.pair){ dims2 = w2 ? [w2,h2] : null; dims1 = [w,h]; natW = w; halfW = Math.max(w,w2); natH = Math.max(h,h2); imgA.src = p.url; imgA.style.width = w+'px'; imgA.style.height = h+'px'; imgA.style.left = ((halfW-w)/2)+'px'; imgA.style.top = ((natH-h)/2)+'px'; if(w2){ imgB.src = p2.url; imgB.style.visibility = 'visible'; imgB.style.width = w2+'px'; imgB.style.height = h2+'px'; imgB.style.left = ((halfW-w2)/2)+'px'; imgB.style.top = ((natH-h2)/2)+'px'; } else imgB.style.visibility = 'hidden'; }
         else { dims1 = dims2 = null; natW = w; natH = h; halfW = S.mono ? natW : Math.floor(natW/2); imgA.src = imgB.src = p.url; imgA.style.width = imgB.style.width = natW+'px'; imgA.style.height = imgB.style.height = natH+'px'; imgA.style.top = imgB.style.top = '0px'; imgB.style.visibility = 'visible'; }
-        applySwap(); measure(); view.s = keep ? Math.min(maxS(), Math.max(fitS, fitS*ratio)) : fitS; view.tx = paneW/2 - cxN*halfW*view.s; view.ty = paneH/2 - cyN*natH*view.s; render(); setSlug(); preload(idx+stepN()); preload(idx+stepN()+1); preload(idx-stepN()); armPlay();
+        applySwap(); measure(); view.s = keep ? Math.min(maxS(), Math.max(fitS, fitS*ratio)) : fitS; view.tx = paneW/2 - cxN*halfW*view.s; view.ty = paneH/2 - cyN*natH*view.s; render(); setSlug(); window.dispatchEvent(new Event('tps:plate')); preload(idx+stepN()); preload(idx+stepN()+1); preload(idx-stepN()); armPlay();
       }
       if(S.pair && p2) loadDims(p2.url, function(w2, h2){ go(w2, h2); }); else go(0,0);
     });
@@ -90,7 +90,7 @@
   on('zout', function(){ zoomCentre(1/1.35); });
   on('fit', fitView);
   on('one', function(){ var cx=(paneW/2-view.tx)/view.s, cy=(paneH/2-view.ty)/view.s; view.s=Math.min(maxS(), Math.max(fitS,1)); view.tx=paneW/2-cx*view.s; view.ty=paneH/2-cy*view.s; render(); });
-  on('swap', function(){ S.swap=!S.swap; applySwap(); save(); });
+  on('swap', function(){ S.swap=!S.swap; applySwap(); save(); window.dispatchEvent(new Event('tps:plate')); });
   on('mono', function(){ S.mono=!S.mono; if(S.mono) S.pair=false; changeMode(); });
   on('pair', function(){ S.pair=!S.pair; if(S.pair) S.mono=false; changeMode(); });
   document.getElementById('seek').addEventListener('input', function(e){ show(+e.target.value); });
@@ -149,6 +149,14 @@
   paintPlay();
   // eye tabs show on first display, then fade away after 10 seconds
   setTimeout(function(){ app.classList.add('tabs-off'); }, 10000);
+  /* read-only snapshot for cast.js (second-screen casting) */
+  window.tpsCast = { snapshot: function(){
+    if(!halfW) return null;
+    function im(el){ return { src:el.src, w:parseFloat(el.style.width)||0, h:parseFloat(el.style.height)||0, left:parseFloat(el.style.left)||0, top:parseFloat(el.style.top)||0, visible:el.style.visibility!=='hidden' }; }
+    return { mode: S.pair ? 'pair' : (S.mono ? 'mono' : 'stereo'), halfW:halfW, natH:natH, a:im(imgA), b:im(imgB),
+      ax: S.pair ? 0 : S.ax, ay: S.pair ? 0 : S.ay,
+      z: view.s/fitS, cx: ((paneW/2 - view.tx)/view.s)/halfW, cy: ((paneH/2 - view.ty)/view.s)/natH };
+  } };
   plates=[{ name:'Depth test card (sample)', url:sampleURL(), revoke:false }];
   show(0,'first');
 })();
