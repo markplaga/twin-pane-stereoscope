@@ -2,7 +2,7 @@
 
 A single-page viewer for side-by-side stereo pairs **and** ordinary single pictures. In stereo mode it splits an image down the middle into two panes and drives both off **one shared transform** — pan and zoom stay identical, so the pair stays registered at any magnification.
 
-Open `index.html` in a browser (needs `app.js`, `help.js` and `audio.js` next to it). No build step. Works on GitHub Pages. Zip unpacking uses JSZip from a CDN.
+Open `index.html` in a browser (needs `app.js`, `help.js`, `audio.js`, `cast.js` and `receiver.html` next to it). No build step. Works on GitHub Pages. Zip unpacking uses JSZip from a CDN.
 
 Press **?** (or the **?** button on the rail) for the built-in manual.
 
@@ -36,6 +36,13 @@ Select several zips at once. The first opens immediately; each later zip is only
 - The sound is independent of the pictures and keeps playing through stepping, slide show, mode changes and full screen. An audio file can also be dropped onto the page.
 - If it will not start by itself, press ▶ (browsers may require a tap first).
 
+## Cast to a Chromecast
+
+- **Cast** on the rail (or `C`) opens Chrome's device picker. Pick a Chromecast and the TV shows only the pictures, with no controls; the phone or tablet stays the remote.
+- Uses the browser Presentation API: `receiver.html` runs on the Chromecast, and `cast.js` streams each picture and the current zoom/pan to it from the sender. Stepping, slide show, zoom, pan, swap, side by side, single image and right-eye nudge all follow. Fusion dots and eye labels are not shown on the TV.
+- Needs Chrome and the page served over **https** (GitHub Pages works). The button is hidden where the API is missing (Safari, Firefox). The sender and Chromecast must be on the same network.
+- Not yet verified on real hardware: it was tested against a simulated connection only.
+
 ## Full screen
 
 - `F` or the full-screen button maximises the viewer.
@@ -50,6 +57,7 @@ Select several zips at once. The first opens immediately; each later zip is only
 - Fusion dots as a free-viewing aid; eye labels fade after about ten seconds.
 - Hideable chrome.
 - Optional WAV soundtrack.
+- Cast to a Chromecast.
 - Built-in manual (**?**).
 
 ## Controls
@@ -65,6 +73,7 @@ Select several zips at once. The first opens immediately; each later zip is only
 | `X` | Swap cross-eyed / parallel |
 | `P` | Side by side on / off |
 | `M` | Stereo pair / single image |
+| `C` | Cast to a Chromecast |
 | `F` | Fullscreen / maximise |
 | `H` | Hide all chrome |
 | `D` | Toggle fusion dots |

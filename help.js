@@ -50,6 +50,7 @@
         <button data-go="h-show">Slide show</button>
         <button data-go="h-aids">Alignment &amp; aids</button>
         <button data-go="h-full">Full screen</button>
+        <button data-go="h-cast">Cast</button>
         <button data-go="h-keys">Keyboard &amp; gestures</button>
         <button data-go="h-cross">Cross-eyed viewing</button>
         <button data-go="h-fix">Troubleshooting</button>
@@ -151,6 +152,15 @@
       <h3>Hide controls</h3>
       <p>The <b>◱</b> button (or <kbd>H</kbd>) hides all controls without going full screen. Press <kbd>H</kbd> or <kbd>Esc</kbd>, or double-click, to bring them back.</p>
 
+      <h2 id="h-cast">Cast to a Chromecast</h2>
+      <p>Press <b>Cast</b> (or <kbd>C</kbd>) to show the pictures on a TV with a Chromecast. The TV shows only the pictures, with no buttons. Your phone or tablet stays the remote: stepping, the slide show, zoom, pan, swap, side by side and single image all follow on the TV.</p>
+      <ul>
+        <li>Choose your Chromecast from the list that appears. The button reads <b>Casting</b> while connected. Press it again to stop.</li>
+        <li>Pictures are sent straight from your device to the TV over your Wi-Fi. Both must be on the same network.</li>
+        <li>You need Chrome (on Android or a computer) and the page must be opened over <b>https</b> (for example from GitHub Pages). The button does not appear in browsers that cannot cast pages.</li>
+        <li>The fusion dots and eye labels are not shown on the TV. The right-eye alignment nudge is.</li>
+      </ul>
+
       <h2 id="h-keys">Keyboard &amp; gestures</h2>
       <table>
         <tr><th>Key</th><th>Action</th></tr>
@@ -163,6 +173,7 @@
         <tr><td><kbd>P</kbd></td><td>Side by side on / off</td></tr>
         <tr><td><kbd>M</kbd></td><td>Single image / Stereo pair</td></tr>
         <tr><td><kbd>Space</kbd></td><td>Start / stop the slide show</td></tr>
+        <tr><td><kbd>C</kbd></td><td>Cast to a Chromecast / stop casting</td></tr>
         <tr><td><kbd>F</kbd></td><td>Full screen on / off</td></tr>
         <tr><td><kbd>H</kbd></td><td>Hide / show controls</td></tr>
         <tr><td><kbd>D</kbd></td><td>Fusion dots on / off</td></tr>

@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Twin Pane Stereoscope – receiver</title>
+<style>
+  html,body{margin:0;height:100%;background:#000;overflow:hidden;cursor:none}
+  #stage{position:fixed;inset:0;display:flex;background:#000}
+  .pane{position:relative;flex:1 1 0;min-width:0;overflow:hidden;background:#000}
+  .frame{position:absolute;top:0;left:0;transform-origin:0 0;overflow:hidden}
+  .frame img{position:absolute;top:0;display:block;max-width:none;max-height:none;image-rendering:-webkit-optimize-contrast}
+  #wait{position:fixed;inset:0;display:grid;place-items:center;color:#d2a24c;font:600 28px/1.4 "Arial Narrow",Arial,sans-serif;letter-spacing:.16em;text-transform:uppercase;text-align:center}
+  #wait small{display:block;color:#7d858f;font-size:16px;letter-spacing:.1em;margin-top:8px}
+  body.live #wait{display:none}
+</style></head>
+<body>
+<div id="stage">
+  <div class="pane" id="pA"><div class="frame" id="fA"><img id="iA" alt=""></div></div>
+  <div class="pane" id="pB"><div class="frame" id="fB"><img id="iB" alt=""></div></div>
+</div>
+<div id="wait">Twin Pane Stereoscope<small>Waiting for pictures from your phone or tablet…</small></div>
+<script>
+(function(){
+  "use strict";
+  var $ = function(id){ return document.getElementById(id); };
+  var stage = $('stage'), pA = $('pA'), pB = $('pB'), fA = $('fA'), fB = $('fB'), iA = $('iA'), iB = $('iB');
+  var meta = null, view = null, conns = [], pending = {}, cur = null, urls = [], recv = null;
+
+  function place(img, d){
+    img.style.width = d.w + 'px'; img.style.height = d.h + 'px';
+    img.style.left = d.left + 'px'; img.style.top = d.top + 'px';
+    img.style.visibility = d.visible ? 'visible' : 'hidden';
+  }
+  function layout(){
+    if(!meta) return;
+    var mono = meta.mode === 'mono', gap = meta.mode === 'pair' ? 16 : 6;
+    pB.style.display = mono ? 'none' : '';
+    stage.style.gap = gap + 'px';
+    document.body.classList.add('live');
+    var r = pA.getBoundingClientRect();
+    var pw = Math.max(1, r.width), ph = Math.max(1, r.height);
+    var fit = Math.min(pw / meta.halfW, ph / meta.natH);
+    var z = view ? view.z : 1, cx = view ? view.cx : .5, cy = view ? view.cy : .5;
+    var s = Math.max(fit, z * fit);
+    var w = meta.halfW * s, h = meta.natH * s;
+    var tx = pw / 2 - cx * meta.halfW * s, ty = ph / 2 - cy * meta.natH * s;
+    tx = w <= pw ? (pw - w) / 2 : Math.min(0, Math.max(pw - w, tx));
+    ty = h <= ph ? (ph - h) / 2 : Math.min(0, Math.max(ph - h, ty));
+    fA.style.width = fB.style.width = meta.halfW + 'px';
+    fA.style.height = fB.style.height = meta.natH + 'px';
+    fA.style.transform = 'translate(' + tx.toFixed(2) + 'px,' + ty.toFixed(2) + 'px) scale(' + s + ')';
+    fB.style.transform = 'translate(' + (tx + meta.ax * s).toFixed(2) + 'px,' + (ty + meta.ay * s).toFixed(2) + 'px) scale(' + s + ')';
+  }
+  function whenLoaded(img, cb){
+    if(img.complete && img.naturalWidth) return cb();
+    img.onload = img.onerror = function(){ img.onload = img.onerror = null; cb(); };
+  }
+  function applyPlate(m){
+    var srcA = urls[m.slotA], srcB = urls[m.slotB];
+    function go(){ meta = m; place(iA, m.a); place(iB, m.b); layout(); }
+    var old = cur; cur = urls.slice();
+    if(iA.src !== srcA) iA.src = srcA;
+    if(iB.src !== srcB) iB.src = srcB;
+    var n = 2; function one(){ if(--n === 0){ go(); if(old) old.forEach(function(u){ if(cur.indexOf(u) < 0) URL.revokeObjectURL(u); }); } }
+    whenLoaded(iA, one); whenLoaded(iB, one);
+  }
+
+  function onMessage(ev){
+    var d = ev.data;
+    if(typeof d === 'string'){
+      var m; try{ m = JSON.parse(d); }catch(e){ return; }
+      if(m.t === 'img'){ recv = { slot: m.slot, mime: m.mime, size: m.size, parts: [], got: 0, seq: m.seq }; if(m.slot === 0) { pending = {}; } if(!m.size) finishImg(); }
+      else if(m.t === 'plate'){
+        if(m.reuse){ if(cur){ urls = cur.slice(); applyPlate(m); } return; }
+        for(var i = 0; i < m.slots; i++){ if(!pending[i]) return; }
+        urls = [];
+        for(i = 0; i < m.slots; i++) urls.push(URL.createObjectURL(new Blob(pending[i].parts, {type: pending[i].mime})));
+        pending = {}; applyPlate(m);
+      }
+      else if(m.t === 'view'){ view = m; layout(); }
+      return;
+    }
+    if(!recv) return;
+    var buf = d instanceof ArrayBuffer ? d : (d.buffer || d);
+    recv.parts.push(buf); recv.got += buf.byteLength;
+    if(recv.got >= recv.size) finishImg();
+  }
+  function finishImg(){ pending[recv.slot] = { parts: recv.parts, mime: recv.mime }; recv = null; }
+
+  function hook(c){
+    conns.push(c);
+    c.binaryType = 'arraybuffer';
+    c.onmessage = onMessage;
+    c.onclose = c.onterminate = function(){ conns = conns.filter(function(x){ return x !== c; }); };
+    try{ c.send(JSON.stringify({t: 'hello'})); }catch(e){}
+    if(c.state === 'connecting') c.onconnect = function(){ try{ c.send(JSON.stringify({t: 'hello'})); }catch(e){} };
+  }
+  var pr = navigator.presentation && navigator.presentation.receiver;
+  if(pr && pr.connectionList){
+    pr.connectionList.then(function(list){
+      list.connections.forEach(hook);
+      list.onconnectionavailable = function(e){ hook(e.connection); };
+    });
+  }
+  window.addEventListener('resize', layout);
+  if(window.ResizeObserver) new ResizeObserver(layout).observe(stage);
+  /* test hook: lets the page be driven without a Cast device */
+  window.__tpsRecv = onMessage;
+})();
+</script>
+</body></html>
