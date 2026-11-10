@@ -40,7 +40,7 @@ Select several zips at once. The first opens immediately; each later zip is only
 
 - **Cast** on the rail (or `C`) opens Chrome's device picker. Pick a Chromecast and the TV shows only the pictures, with no controls; the phone or tablet stays the remote.
 - Uses the browser Presentation API: `receiver.html` runs on the Chromecast, and `cast.js` streams each picture and the current zoom/pan to it from the sender. Stepping, slide show, zoom, pan, swap, side by side, single image and right-eye nudge all follow. Fusion dots and eye labels are not shown on the TV.
-- Needs Chrome and the page served over **https** (GitHub Pages works). The button is hidden where the API is missing (Safari, Firefox). The sender and Chromecast must be on the same network.
+- Needs Chrome and the page served over **https** (GitHub Pages works). Where the API is missing (Safari, Firefox, iOS browsers) the button stays visible but dimmed, and explains why when pressed. The sender and Chromecast must be on the same network.
 - Not yet verified on real hardware: it was tested against a simulated connection only.
 
 ## Full screen

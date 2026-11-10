@@ -4,8 +4,17 @@
   "use strict";
   var btn = document.getElementById('cast');
   if(!btn) return;
-  if(typeof PresentationRequest === 'undefined' || !window.tpsCast){ return; } /* button stays hidden */
-  btn.parentNode.classList.remove('hid');
+  var supported = typeof PresentationRequest !== 'undefined' && !!window.tpsCast;
+  if(!supported){
+    /* keep the button visible but explain why it cannot work here */
+    btn.classList.add('off'); btn.title = 'Casting is not available in this browser';
+    btn.addEventListener('click', function(){
+      var t = document.getElementById('toast'); if(!t) return;
+      t.textContent = 'Casting needs Chrome on Android or a computer. This browser cannot cast pages.';
+      t.classList.add('on'); clearTimeout(btn._t); btn._t = setTimeout(function(){ t.classList.remove('on'); }, 3500);
+    });
+    return;
+  }
 
   var conn = null, req = null, sentSrc = [], token = 0, viewQueued = false, CHUNK = 32 * 1024;
   function toast(m){ var t = document.getElementById('toast'); if(!t) return; t.textContent = m; t.classList.add('on'); clearTimeout(toast.t); toast.t = setTimeout(function(){ t.classList.remove('on'); }, 2200); }

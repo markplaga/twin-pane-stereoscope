@@ -86,6 +86,7 @@
   #app.drop #veil{ display:grid; }
   #toast{ position:absolute; left:50%; bottom:calc(var(--rail) + 18px); transform:translateX(-50%); background:var(--panel-hi); border:1px solid var(--line-hi); border-radius:3px; padding:8px 14px; font-family:var(--f-num); font-size:12px; color:var(--text); z-index:60; opacity:0; pointer-events:none; }
   #toast.on{ opacity:1; }
+  #cast.off{ opacity:.5; }
   .hid{ display:none !important; }
 </style>
 <div id="app" class="dots">
@@ -132,7 +133,7 @@
         <button id="openFiles" class="ghost">Files…</button>
         <button id="openZip" class="ghost">Zip…</button>
       </div>
-      <div class="grp hid" id="grpCast"><button id="cast" aria-pressed="false" title="Show the pictures on a Chromecast (C)">Cast</button></div>
+      <div class="grp" id="grpCast"><button id="cast" aria-pressed="false" title="Show the pictures on a Chromecast (C)">Cast</button></div>
       <div class="grp">
         <button class="icon" id="settings" aria-pressed="false">&#9881;</button>
         <button class="icon" id="full">&#9974;</button>
