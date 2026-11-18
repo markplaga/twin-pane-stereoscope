@@ -63,6 +63,7 @@
         <li>Pinch, scroll or double-tap to zoom. Both panes zoom to the same spot, so what you see on one side always lines up with the other.</li>
         <li>Use the ◀ ▶ buttons, the arrow keys, or swipe to move to the next picture. Press <b>F</b> or the ⛶ button for full screen.</li>
       </ol>
+      <div class="tip">Going back to the same pictures often? Use <b>Save…</b> in the bar to store them, the viewing mode and the soundtrack as a <b>profile</b>, then reload it from the <b>Profiles…</b> drop-down. See <i>Profiles</i> below.</div>
       <div class="tip">Not a stereo pair? Press <b>Stereo pair</b> in the bar to switch to <b>Single image</b>, or use <b>Side by side</b> to compare two different pictures.</div>
 
       <h2 id="h-open">Opening pictures</h2>
@@ -72,9 +73,10 @@
         <tr><td>Folder…</td><td>On a computer, opens a folder and loads every picture inside it, including sub-folders. On a phone or tablet it first shows a small menu: <b>Photo gallery</b> (pick photos from your gallery), <b>Browse folders…</b> (pick a whole folder, where the device supports it) and <b>Zip files or pictures…</b>.</td></tr>
         <tr><td>Files…</td><td>Pick one or more individual pictures. On a phone this opens your photo picker.</td></tr>
         <tr><td>Zip…</td><td>Pick one or more .zip files. Zips and pictures can both be chosen in this picker. See <i>Zip files</i> below.</td></tr>
+        <tr><td>♪ WAV…</td><td>Pick an audio file to play as a soundtrack. See <i>Soundtrack</i>.</td></tr>
         <tr><td>Drag &amp; drop</td><td>On a computer, drop pictures, a folder, or zip files anywhere on the page.</td></tr>
       </table>
-      <p>Opening a new set of pictures replaces the current one. The header shows the picture’s name and pixel size, and the counter shows your place (for example “3 / 24”). When there is more than one picture, a slider appears in the bar so you can jump anywhere.</p>
+      <p>In Chrome or Edge on a computer these buttons use the browser’s own file picker, which lets a saved profile reopen the same files later. Opening a new set of pictures replaces the current one. The header shows the picture’s name and pixel size, and the counter shows your place (for example “3 / 24”). When there is more than one picture, a slider appears in the bar so you can jump anywhere.</p>
 
       <h2 id="h-zips">Zip files</h2>
       <p>The app unpacks zips on your device and shows the pictures inside, in name order. Folders inside a zip are fine; anything that isn’t a picture is ignored.</p>
@@ -148,6 +150,7 @@
         <li><b>Previous / next:</b> tap the <b>lower four fifths</b> of the screen: left half goes back, right half goes forward. Nothing is drawn on screen.</li>
         <li><b>Zoom and pan still work.</b> Drag and pinch as usual. Double-tap-to-zoom works in the top fifth of the screen only, because taps below it change plates.</li>
       </ul>
+      <p>Loading a profile from the <b>Profiles…</b> drop-down also goes full screen (or maximises), so the bar disappears. Exit first if you want to pick another profile.</p>
       <div class="tip">If a page title or browser bar stays visible in full screen, the app is running inside another page or app that doesn’t allow real fullscreen. Opening the app directly in a normal browser (for example Chrome) gives true full screen.</div>
       <h3>Hide controls</h3>
       <p>The <b>◱</b> button (or <kbd>H</kbd>) hides all controls without going full screen. Press <kbd>H</kbd> or <kbd>Esc</kbd>, or double-click, to bring them back.</p>
@@ -211,7 +214,11 @@
       <h3>Zip support failed to load</h3>
       <p>The zip reader is downloaded when the page opens. Check your connection and reload.</p>
       <h3>My settings aren’t remembered</h3>
-      <p>Mode, alignment, stage width, slide-show time and other settings are saved in your browser. Private browsing or blocked site data prevents this; the app still works, but starts from defaults each time.</p>
+      <p>Mode, alignment, stage width, slide-show time and other settings are saved in your browser. Private browsing or blocked site data prevents this; the app still works, but starts from defaults each time. Profiles need the same browser storage.</p>
+      <h3>A profile loaded but the pictures or sound did not come back</h3>
+      <p>A toast names the files to choose again. A browser cannot remember a file’s location unless it is Chrome or Edge on a computer, and even there access can be refused or the file may have moved. Save the profile again with <b>Keep a copy of the files in this browser</b> ticked, so it no longer depends on the original files. On iOS, stored copies can be cleared after about a week of not using the site unless the page is added to the Home Screen.</p>
+      <h3>I do not see Profiles… in the bar</h3>
+      <p>You are probably looking at an older, cached copy of the page. Reload it, or add <code>?v=2</code> to the address to force a fresh copy. The bar also scrolls onto a second row on narrow screens.</p>
       <h3>Large pictures load slowly</h3>
       <p>Very large pictures take a moment to decode. The app preloads the next and previous plates to keep stepping quick.</p>
 
