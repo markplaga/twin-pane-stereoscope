@@ -67,7 +67,7 @@
     au = new Audio(url);
     au.preload = 'auto'; au.loop = loop; au.volume = vol.value/100;
     au.addEventListener('play', paint); au.addEventListener('pause', paint); au.addEventListener('ended', paint);
-    au.addEventListener('error', function(){ say('Could not play ' + f.name); clearSound(); });
+    au.addEventListener('error', function(){ say('Could not play ' + f.name); clearSound(); window.dispatchEvent(new CustomEvent('tps:audio', { detail:{ file:null } })); });
     nm.textContent = f.name; nm.title = f.name;
     bOpen.textContent = '♪';
     bOpen.title = 'Load a different audio file';
@@ -75,6 +75,7 @@
     var p = au.play();
     if(p && p.catch) p.catch(function(){ say('Tap ▶ to start the sound'); paint(); });
     say('♪ ' + f.name);
+    window.dispatchEvent(new CustomEvent('tps:audio', { detail:{ file:f } }));
   }
   function toggle(){
     if(!au){ file.click(); return; }
@@ -85,9 +86,21 @@
   bOpen.addEventListener('click', function(){ file.value = ''; file.click(); });
   file.addEventListener('change', function(){ var f = file.files && file.files[0]; if(!f) return; if(!isAudio(f)){ say('That is not an audio file'); return; } load(f); });
   bPlay.addEventListener('click', toggle);
-  bClr.addEventListener('click', function(){ clearSound(); say('Sound removed'); });
+  bClr.addEventListener('click', function(){ clearSound(); say('Sound removed'); window.dispatchEvent(new CustomEvent('tps:audio', { detail:{ file:null } })); });
   bLoop.addEventListener('click', function(){ loop = !loop; if(au){ au.loop = loop; if(loop && au.ended){ au.play(); } } paint(); keep(); });
   vol.addEventListener('input', function(){ if(au) au.volume = vol.value/100; keep(); });
+
+  /* used by profiles.js */
+  window.tpsAudio = {
+    load: load,
+    prefs: function(){ return { v:+vol.value, l:loop }; },
+    setPrefs: function(p){
+      if(!p) return;
+      if(typeof p.v === 'number'){ vol.value = Math.max(0, Math.min(100, p.v)); if(au) au.volume = vol.value/100; }
+      if(typeof p.l === 'boolean'){ loop = p.l; if(au) au.loop = loop; }
+      paint(); keep();
+    }
+  };
 
   /* S toggles the sound; ignored while typing or while the manual is open */
   window.addEventListener('keydown', function(e){
