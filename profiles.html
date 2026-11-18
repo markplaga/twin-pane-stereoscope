@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#0a0b0d">
+  <title>Twin Pane Stereoscope · Profiles</title>
+  <style>
+    :root{color-scheme:dark;--ink:#0a0b0d;--panel:#131519;--hi:#1c1f25;--line:#343943;--text:#e6e8ec;--mute:#a1a7b0;--ochre:#d2a24c}
+    *{box-sizing:border-box}html,body{height:100%;margin:0;background:var(--ink);color:var(--text);font:14px system-ui,sans-serif}#viewer{position:fixed;inset:0;width:100%;height:100%;border:0;background:var(--ink)}
+    #toggle{position:fixed;z-index:3;top:10px;right:10px;border:1px solid var(--line);border-radius:4px;background:var(--panel);color:var(--text);padding:10px 14px;font:inherit;cursor:pointer;box-shadow:0 2px 12px #0008}
+    #panel{position:fixed;z-index:4;right:10px;top:58px;width:min(360px,calc(100vw - 20px));max-height:calc(100vh - 72px);overflow:auto;padding:16px;background:var(--panel);border:1px solid var(--line);border-radius:6px;box-shadow:0 16px 40px #000b}
+    #panel[hidden]{display:none}h1{font-size:16px;letter-spacing:.08em;text-transform:uppercase;color:var(--ochre);margin:0 0 8px}p{color:var(--mute);line-height:1.45;margin:0 0 14px}.save{display:flex;gap:7px;margin-bottom:12px}input[type=text]{min-width:0;flex:1;background:#0e1013;border:1px solid var(--line);border-radius:3px;color:var(--text);padding:9px;font:inherit}button{border:1px solid var(--line);border-radius:3px;background:var(--hi);color:var(--text);padding:8px 10px;font:inherit;cursor:pointer}button:hover{border-color:var(--ochre)}.save button{background:var(--ochre);color:#14100a;border-color:var(--ochre);font-weight:600}.list{display:grid;gap:7px}.profile{display:flex;align-items:center;gap:6px;padding:8px;background:#0e1013;border:1px solid var(--line);border-radius:3px}.profile-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.empty{font-size:13px;color:var(--mute);padding:8px 0}.actions{display:flex;gap:7px;flex-wrap:wrap;margin-top:12px;padding-top:12px;border-top:1px solid var(--line)}#status{min-height:1.4em;margin-top:10px;color:var(--ochre);font-size:12px}.hint{font-size:12px;margin-top:10px}
+    @media(max-width:520px){.profile{flex-wrap:wrap}.profile-name{flex-basis:100%}.save{flex-wrap:wrap}.save input{flex-basis:100%}}
+  </style>
+</head>
+<body>
+  <iframe id="viewer" title="Twin Pane Stereoscope viewer" src="index.html"></iframe>
+  <button id="toggle" type="button" aria-expanded="false">Profiles</button>
+  <aside id="panel" hidden aria-label="Saved settings profiles">
+    <h1>Settings profiles</h1>
+    <p>Save the current viewer settings on this device, restore a saved profile, or transfer a profile as a JSON file. Images and soundtrack files are not included.</p>
+    <form class="save" id="saveForm"><input id="profileName" type="text" maxlength="60" placeholder="Profile name" aria-label="Profile name" required><button type="submit">Save current</button></form>
+    <div id="profiles" class="list" aria-live="polite"></div>
+    <div class="actions"><button id="importButton" type="button">Import profile…</button><button id="exportCurrent" type="button">Download current settings</button></div>
+    <input id="importFile" type="file" accept="application/json,.json" hidden>
+    <div class="hint">Profiles stay in this browser's local storage. Download a JSON copy to back them up or move them to another device.</div>
+    <div id="status" role="status" aria-live="polite"></div>
+  </aside>
+  <script>
+  (function(){
+    'use strict';
+    var STORE='tps.profiles.v1', allowed={swap:'boolean',mono:'boolean',dots:'boolean',keep:'boolean',pair:'boolean',stagew:'number',ax:'number',ay:'number',hold:'number'};
+    var viewer=document.getElementById('viewer'), panel=document.getElementById('panel'), toggle=document.getElementById('toggle'), list=document.getElementById('profiles'), status=document.getElementById('status');
+    function say(text){status.textContent=text;}
+    function readProfiles(){try{var v=JSON.parse(localStorage.getItem(STORE)||'[]');return Array.isArray(v)?v.filter(function(p){return p&&typeof p.id==='string'&&typeof p.name==='string'&&p.settings&&typeof p.settings==='object'}):[];}catch(e){return [];}}
+    function currentSettings(){try{return {settings:JSON.parse(localStorage.getItem('tps.v1')||'{}'),sound:JSON.parse(localStorage.getItem('tps.snd')||'{}')};}catch(e){return {settings:{},sound:{}};}}
+    function validBundle(data){if(!data||typeof data!=='object')return null;var src=data.settings||data; if(!src||typeof src!=='object'||Array.isArray(src))return null;var clean={};Object.keys(allowed).forEach(function(k){if(typeof src[k]===allowed[k])clean[k]=src[k];});if(!Object.keys(clean).length)return null;var sound=data.sound&&typeof data.sound==='object'?data.sound:{};return {settings:clean,sound:{v:typeof sound.v==='number'?Math.max(0,Math.min(100,sound.v)):80,l:typeof sound.l==='boolean'?sound.l:true}};}
+    function saveList(items){try{localStorage.setItem(STORE,JSON.stringify(items));return true;}catch(e){say('Could not save profiles. Browser storage may be full or disabled.');return false;}}
+    function makeDownload(name,bundle){var blob=new Blob([JSON.stringify({format:'twin-pane-stereoscope-profile',version:1,name:name,settings:bundle.settings,sound:bundle.sound},null,2)],{type:'application/json'});var a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=(name||'stereoscope-profile').replace(/[^a-z0-9_-]+/gi,'-').replace(/^-|-$/g,'')+'.json';document.body.appendChild(a);a.click();a.remove();setTimeout(function(){URL.revokeObjectURL(a.href);},1000);}
+    function apply(bundle){var clean=validBundle(bundle);if(!clean){say('This profile does not contain supported settings.');return;}try{localStorage.setItem('tps.v1',JSON.stringify(clean.settings));localStorage.setItem('tps.snd',JSON.stringify(clean.sound));viewer.contentWindow.location.reload();say('Profile loaded.');}catch(e){say('Could not access viewer settings. Open this page from the same site as the viewer.');}}
+    function render(){var items=readProfiles();list.textContent='';if(!items.length){var empty=document.createElement('div');empty.className='empty';empty.textContent='No saved profiles yet.';list.appendChild(empty);return;}items.forEach(function(p){var row=document.createElement('div');row.className='profile';var name=document.createElement('span');name.className='profile-name';name.textContent=p.name;var load=document.createElement('button');load.type='button';load.textContent='Load';load.addEventListener('click',function(){apply(p);});var download=document.createElement('button');download.type='button';download.textContent='Download';download.addEventListener('click',function(){makeDownload(p.name,p);});var remove=document.createElement('button');remove.type='button';remove.textContent='Delete';remove.setAttribute('aria-label','Delete '+p.name);remove.addEventListener('click',function(){if(saveList(readProfiles().filter(function(x){return x.id!==p.id;}))){say('Profile deleted.');render();}});row.appendChild(name);row.appendChild(load);row.appendChild(download);row.appendChild(remove);list.appendChild(row);});}
+    toggle.addEventListener('click',function(){var open=panel.hidden;panel.hidden=!open;toggle.setAttribute('aria-expanded',String(open));if(open)render();});
+    document.getElementById('saveForm').addEventListener('submit',function(e){e.preventDefault();var input=document.getElementById('profileName'),name=input.value.trim();if(!name){say('Enter a profile name.');return;}var bundle=currentSettings(),clean=validBundle(bundle);if(!clean){say('Viewer settings are not available yet. Try again after the viewer loads.');return;}var items=readProfiles();var match=items.find(function(p){return p.name.toLowerCase()===name.toLowerCase();});if(match){match.settings=clean.settings;match.sound=clean.sound;match.updatedAt=new Date().toISOString();}else items.unshift({id:(window.crypto&&crypto.randomUUID)?crypto.randomUUID():String(Date.now())+'-'+Math.random().toString(36).slice(2),name:name,settings:clean.settings,sound:clean.sound,updatedAt:new Date().toISOString()});if(saveList(items)){input.value='';say('Profile saved on this device.');render();}});
+    document.getElementById('exportCurrent').addEventListener('click',function(){var b=validBundle(currentSettings());if(!b){say('Viewer settings are not available yet. Try again after the viewer loads.');return;}makeDownload('stereoscope-settings',b);say('Settings file downloaded.');});
+    document.getElementById('importButton').addEventListener('click',function(){document.getElementById('importFile').click();});
+    document.getElementById('importFile').addEventListener('change',function(e){var file=e.target.files&&e.target.files[0];e.target.value='';if(!file)return;var reader=new FileReader();reader.onload=function(){try{var data=JSON.parse(reader.result),bundle=validBundle(data),name=typeof data.name==='string'?data.name.trim():file.name.replace(/\.json$/i,'');if(!bundle){say('That file is not a supported settings profile.');return;}if(!name)name='Imported profile';var items=readProfiles(),match=items.find(function(p){return p.name.toLowerCase()===name.toLowerCase();});if(match){match.settings=bundle.settings;match.sound=bundle.sound;}else items.unshift({id:(window.crypto&&crypto.randomUUID)?crypto.randomUUID():String(Date.now())+'-'+Math.random().toString(36).slice(2),name:name,settings:bundle.settings,sound:bundle.sound,updatedAt:new Date().toISOString()});if(saveList(items)){say('Profile imported.');render();}}catch(err){say('Could not read that JSON profile.');}};reader.onerror=function(){say('Could not read that file.');};reader.readAsText(file);});
+  })();
+  </script>
+</body>
+</html>
