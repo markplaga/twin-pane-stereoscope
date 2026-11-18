@@ -258,6 +258,8 @@
   function loadProfile(id){
     var p = readAll().list.filter(function(x){ return x.id === id; })[0];
     if(!p) return;
+    /* maximise straight away, while the tap that chose the profile still counts as a user gesture (needed for full screen) */
+    var fb = $('full'); if(fb && !app.classList.contains('maxed')) fb.click();
     api.apply(p.settings);
     if(p.sound && window.tpsAudio) window.tpsAudio.setPrefs(p.sound);
     var again = [];
@@ -391,7 +393,7 @@
         '<li><b>Save…</b> in the bar opens the save panel. Type a name and press <b>Save profile</b>. Using a name that already exists updates that profile.</li>' +
         '<li>The <b>Profiles…</b> drop-down lists every saved profile. Choosing one loads it straight away. To remove one, choose it, open <b>Save…</b> and press Delete.</li>' +
         '<li>A web page cannot read a file path, so what is remembered depends on the browser. In Chrome or Edge on a computer, files and folders you open with the buttons, or drop on the page, are remembered and reopened when you load the profile; the browser may ask you to allow access once. In other browsers (Safari, Firefox, phones and tablets) a file location cannot be kept, so tick <b>Keep a copy of the files in this browser</b> in the save panel: the files are stored inside the browser and reopen with no picking. Copies use storage (the size is shown) and iOS may clear them after about a week unless the page is added to the Home Screen. Without a copy, only the settings and file names are saved and a toast tells you which files to choose again.</li>' +
-        '<li>Loading a profile replaces the pictures and the soundtrack it saved. If it saved no soundtrack, whatever is playing is left alone.</li>' +
+        '<li>Loading a profile also maximises the viewer (Esc, or the top-right corner, brings the controls back).</li><li>Loading a profile replaces the pictures and the soundtrack it saved. If it saved no soundtrack, whatever is playing is left alone.</li>' +
         '<li>Profiles live in this browser on this device. They are not uploaded anywhere.</li>' +
         '</ul>';
       while(sec.firstChild) keysH.parentNode.insertBefore(sec.firstChild, keysH);
