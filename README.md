@@ -2,7 +2,7 @@
 
 A single-page viewer for side-by-side stereo pairs **and** ordinary single pictures. In stereo mode it splits an image down the middle into two panes and drives both off **one shared transform** — pan and zoom stay identical, so the pair stays registered at any magnification.
 
-Open `index.html` in a browser (needs `app.js`, `help.js`, `audio.js`, `cast.js` and `receiver.html` next to it). No build step. Works on GitHub Pages. Zip unpacking uses JSZip from a CDN.
+Open `index.html` in a browser (needs `app.js`, `help.js`, `audio.js`, `profiles.js`, `cast.js` and `receiver.html` next to it). No build step. Works on GitHub Pages. Zip unpacking uses JSZip from a CDN.
 
 Press **?** (or the **?** button on the rail) for the built-in manual.
 
@@ -35,6 +35,15 @@ Select several zips at once. The first opens immediately; each later zip is only
 - ▶ / ❚❚ (or `S`) plays and pauses; a slider sets volume; **Loop** repeats (on by default); ✕ removes it. Volume and loop are remembered.
 - The sound is independent of the pictures and keeps playing through stepping, slide show, mode changes and full screen. An audio file can also be dropped onto the page.
 - If it will not start by itself, press ▶ (browsers may require a tap first).
+
+## Profiles
+A profile is a saved setup: the viewing mode (cross-eyed, parallel, side by side, or single 2D image), the alignment, stage width, fusion dots, keep-zoom and slide-show hold settings, the pictures that were open (a zip, several zips, a folder or loose files) and the soundtrack with its volume and loop setting.
+
+- **Save…** in the bar opens the save panel. Type a name and press Save profile. An existing name is updated.
+- The **Profiles…** drop-down lists every saved profile and loading one is a single choice. To delete one, pick it, open Save… and press Delete twice.
+- A web page cannot read a file path. In **Chrome or Edge on a computer**, files and folders opened with the Folder / Files / Zip / ♪ WAV buttons, or dropped on the page, keep a permission handle in IndexedDB, so loading the profile reopens them (the browser may ask once to allow access). In **Safari, Firefox and on phones and tablets** the profile keeps the settings and the file names; a toast lists the files to choose again.
+- Loading replaces the pictures and the soundtrack the profile saved. A profile saved without a soundtrack leaves the current sound alone.
+- Profiles are stored in this browser (`localStorage` key `tps.prof.v2`, handles in the `tps-profiles` IndexedDB). Nothing is uploaded. This is separate from the standalone `profiles.html` settings page.
 
 ## Cast to a Chromecast
 

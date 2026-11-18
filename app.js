@@ -62,11 +62,11 @@
   function applyMono(){ app.classList.toggle('mono', !!S.mono); var b = document.getElementById('mono'); b.textContent = S.mono ? 'Single image' : 'Stereo pair'; b.setAttribute('aria-pressed', String(!!S.mono)); if(natW){ halfW = S.mono ? natW : Math.floor(natW/2); applySwap(); measure(); view.s = fitS; render(); setSlug(); } }
   var IMG_RE = /\.(jpe?g|png|webp|gif|bmp|avif|jfif)$/i;
   var coll = new Intl.Collator(undefined, {numeric:true, sensitivity:'base'});
-  function loadFiles(list){ var files = Array.prototype.slice.call(list).filter(function(f){ return IMG_RE.test(f.name) || /^image\//.test(f.type||''); }); if(!files.length){ toast('No images found there'); return; } files.sort(function(a,b){ return coll.compare(a.webkitRelativePath||a.name, b.webkitRelativePath||b.name); }); zipQueue = []; zipAll = []; zipNo = 0; zipTotal = 0; plates.forEach(function(p){ if(p.revoke) URL.revokeObjectURL(p.url); }); plates = files.map(function(f){ return { name: f.webkitRelativePath||f.name, url: URL.createObjectURL(f), revoke:true }; }); idx = 0; show(0, 'first'); toast(plates.length+(plates.length===1?' plate loaded':' plates loaded')); }
+  function loadFiles(list){ var files = Array.prototype.slice.call(list).filter(function(f){ return IMG_RE.test(f.name) || /^image\//.test(f.type||''); }); if(!files.length){ toast('No images found there'); return; } files.sort(function(a,b){ return coll.compare(a.webkitRelativePath||a.name, b.webkitRelativePath||b.name); }); zipQueue = []; zipAll = []; zipNo = 0; zipTotal = 0; plates.forEach(function(p){ if(p.revoke) URL.revokeObjectURL(p.url); }); plates = files.map(function(f){ return { name: f.webkitRelativePath||f.name, url: URL.createObjectURL(f), revoke:true }; }); idx = 0; show(0, 'first'); toast(plates.length+(plates.length===1?' plate loaded':' plates loaded')); var isDir = files.some(function(f){ return f.webkitRelativePath; }); window.dispatchEvent(new CustomEvent('tps:source', { detail:{ kind: isDir?'folder':'files', label: isDir ? files[0].webkitRelativePath.split('/')[0] : (files.length===1 ? files[0].name : files.length+' pictures'), count: files.length, names: files.map(function(f){ return f.name; }), files: files } })); }
   function mimeFor(name){ var ext = (/\.([a-z0-9]+)$/i.exec(name)||[,''])[1].toLowerCase(); return {jpg:'image/jpeg',jpeg:'image/jpeg',png:'image/png',webp:'image/webp',gif:'image/gif',bmp:'image/bmp',avif:'image/avif',jfif:'image/jpeg'}[ext]||'application/octet-stream'; }
   function isZip(f){ return /\.zip$/i.test(f.name); }
   function unzipFile(file){ zipQueue = []; zipAll = [file]; zipNo = 1; zipTotal = 1; readZip(file); }
-  function openZips(list){ var zs = Array.prototype.slice.call(list).filter(isZip); if(!zs.length){ toast('No zip files selected'); return; } zs.sort(function(a,b){ return coll.compare(a.name, b.name); }); zipAll = zs; zipQueue = zs.slice(1); zipNo = 1; zipTotal = zs.length; readZip(zs[0]); }
+  function openZips(list){ var zs = Array.prototype.slice.call(list).filter(isZip); if(!zs.length){ toast('No zip files selected'); return; } zs.sort(function(a,b){ return coll.compare(a.name, b.name); }); zipAll = zs; zipQueue = zs.slice(1); zipNo = 1; zipTotal = zs.length; window.dispatchEvent(new CustomEvent('tps:source', { detail:{ kind:'zip', label: zs.length===1 ? zs[0].name : zs.length+' zip files', count: zs.length, names: zs.map(function(f){ return f.name; }), files: zs } })); readZip(zs[0]); }
   function loadNextZip(){ if(zipBusy) return; if(!zipQueue.length){ if(zipAll.length < 2) return; zipQueue = zipAll.slice(1); zipNo = 1; readZip(zipAll[0]); return; } zipNo++; readZip(zipQueue.shift()); }
   function readZip(file){ if(!window.JSZip){ toast('Zip support failed to load'); return; } zipBusy = true; toast('Unpacking '+file.name); JSZip.loadAsync(file).then(function(zip){ var entries = []; zip.forEach(function(path, entry){ if(!entry.dir && IMG_RE.test(entry.name)) entries.push(entry); }); if(!entries.length){ toast('No images found in '+file.name); return null; } entries.sort(function(a,b){ return coll.compare(a.name,b.name); }); return Promise.all(entries.map(function(entry){ return entry.async('arraybuffer').then(function(buf){ return { name: entry.name, url: URL.createObjectURL(new Blob([buf],{type:mimeFor(entry.name)})), revoke:true }; }); })); }).then(function(newPlates){ zipBusy = false; if(!newPlates){ if(zipQueue.length) loadNextZip(); return; } plates.forEach(function(p){ if(p.revoke) URL.revokeObjectURL(p.url); }); plates = newPlates; idx = 0; show(0,'first'); toast((zipTotal > 1 ? 'Zip '+zipNo+' of '+zipTotal+': ' : '')+plates.length+(plates.length===1?' plate':' plates')+' from '+file.name); }).catch(function(){ zipBusy = false; toast('Could not read '+file.name); if(zipQueue.length) loadNextZip(); }); }
   var ptrs = new Map(), activePane = null, prevC = null, prevD = 0, swipeAcc = 0, swiping = false, lastTap = 0, moved = 0;
@@ -120,13 +120,14 @@
   on('hide', function(){ app.classList.add('hidechrome'); toast('Controls hidden — press H or tap twice'); });
   var setBtn=document.getElementById('settings'), setPanel=document.getElementById('panelSet');
   on('settings', function(){ closeOpenPanel(); var open=setPanel.classList.toggle('hid'); setBtn.setAttribute('aria-pressed', String(!open)); });
-  function bindRange(id,key,fmt,after){ var el=document.getElementById(id), out=document.getElementById(id+'Val'); el.value=S[key]; out.textContent=fmt(S[key]); el.addEventListener('input', function(){ S[key]=+el.value; out.textContent=fmt(S[key]); if(after) after(); render(); save(); }); }
+  var uiSync = {};
+  function bindRange(id,key,fmt,after){ var el=document.getElementById(id), out=document.getElementById(id+'Val'); el.value=S[key]; out.textContent=fmt(S[key]); uiSync[key]=function(){ el.value=S[key]; out.textContent=fmt(S[key]); if(after) after(); }; el.addEventListener('input', function(){ S[key]=+el.value; out.textContent=fmt(S[key]); if(after) after(); render(); save(); }); }
   bindRange('stagew','stagew',function(v){return v+'%';}, function(){ stage.style.setProperty('--stagew', S.stagew+'%'); document.getElementById('dots').style.setProperty('--stagew', S.stagew+'%'); requestAnimationFrame(function(){ measure(); if(view.s<fitS) view.s=fitS; render(); }); });
   bindRange('alignY','ay',function(v){return v+' px';});
   bindRange('alignX','ax',function(v){return v+' px';});
   function nudge(dx,dy){ S.ax=Math.max(-120,Math.min(120,S.ax+dx)); S.ay=Math.max(-60,Math.min(60,S.ay+dy)); document.getElementById('alignX').value=S.ax; document.getElementById('alignY').value=S.ay; document.getElementById('alignXVal').textContent=S.ax+' px'; document.getElementById('alignYVal').textContent=S.ay+' px'; render(); save(); }
   on('nx-', function(){ nudge(-1,0); }); on('nx+', function(){ nudge(1,0); }); on('ny-', function(){ nudge(0,-1); }); on('ny+', function(){ nudge(0,1); }); on('nreset', function(){ S.ax=0; S.ay=0; nudge(0,0); });
-  function toggle(id,key,cls){ var b=document.getElementById(id); function paint(){ b.textContent=S[key]?'On':'Off'; b.setAttribute('aria-pressed', String(!!S[key])); if(cls) app.classList.toggle(cls, !!S[key]); } b.addEventListener('click', function(){ S[key]=!S[key]; paint(); save(); }); paint(); }
+  function toggle(id,key,cls){ var b=document.getElementById(id); function paint(){ b.textContent=S[key]?'On':'Off'; b.setAttribute('aria-pressed', String(!!S[key])); if(cls) app.classList.toggle(cls, !!S[key]); } b.addEventListener('click', function(){ S[key]=!S[key]; paint(); save(); }); uiSync[key]=paint; paint(); }
   toggle('tDots','dots','dots'); toggle('tKeep','keep',null);
   window.addEventListener('keydown', function(e){ if(e.target.tagName==='INPUT' && e.target.type==='number') return; if(e.target.tagName==='INPUT' && e.target.type==='range' && (e.key==='ArrowLeft'||e.key==='ArrowRight')) return; var k=e.key; if(k===' '||k==='Spacebar'){ setPlaying(!playing); e.preventDefault(); return; } if(e.shiftKey && (k==='ArrowLeft'||k==='ArrowRight'||k==='ArrowUp'||k==='ArrowDown')){ nudge(k==='ArrowLeft'?-1:k==='ArrowRight'?1:0, k==='ArrowUp'?-1:k==='ArrowDown'?1:0); e.preventDefault(); return; } switch(k){ case 'ArrowLeft': show(idx-stepN()); break; case 'ArrowRight': show(idx+stepN()); break; case 'p': case 'P': document.getElementById('pair').click(); break; case 'ArrowUp': zoomCentre(1.25); break; case 'ArrowDown': zoomCentre(1/1.25); break; case '+': case '=': zoomCentre(1.35); break; case '-': case '_': zoomCentre(1/1.35); break; case '0': fitView(); break; case '1': document.getElementById('one').click(); break; case 'x': case 'X': if(!S.mono) document.getElementById('swap').click(); break; case 'm': case 'M': document.getElementById('mono').click(); break; case 'f': case 'F': document.getElementById('full').click(); break; case 'h': case 'H': app.classList.toggle('hidechrome'); break; case 'd': case 'D': document.getElementById('tDots').click(); break; case 'Escape': closeOpenPanel(); setPanel.classList.add('hid'); setBtn.setAttribute('aria-pressed','false'); if(app.classList.contains('maxed')){ if(fsElement()) fsExit(); setMax(false); } else app.classList.remove('hidechrome'); break; default: return; } e.preventDefault(); });
   stage.addEventListener('dblclick', function(){ if(app.classList.contains('hidechrome')) app.classList.remove('hidechrome'); });
@@ -149,6 +150,22 @@
   paintPlay();
   // eye tabs show on first display, then fade away after 10 seconds
   setTimeout(function(){ app.classList.add('tabs-off'); }, 10000);
+  /* settings in / out, and file opening, for profiles.js */
+  window.tpsApp = {
+    settings: function(){ return { swap:!!S.swap, mono:!!S.mono, pair:!!S.pair, dots:!!S.dots, keep:!!S.keep, stagew:S.stagew, ax:S.ax, ay:S.ay, hold:S.hold }; },
+    apply: function(o){
+      if(!o || typeof o !== 'object') return;
+      ['swap','mono','pair','dots','keep'].forEach(function(k){ if(typeof o[k] === 'boolean') S[k] = o[k]; });
+      function num(k, lo, hi){ if(typeof o[k] === 'number' && isFinite(o[k])) S[k] = Math.max(lo, Math.min(hi, o[k])); }
+      num('stagew', 40, 100); num('ax', -120, 120); num('ay', -60, 60);
+      if(typeof o.hold === 'number') S.hold = clampHold(o.hold);
+      if(S.pair) S.mono = false;
+      ['stagew','ax','ay','dots','keep'].forEach(function(k){ if(uiSync[k]) uiSync[k](); });
+      paintPlay(); if(playing) armPlay();
+      changeMode();
+    },
+    open: routeFiles
+  };
   /* read-only snapshot for cast.js (second-screen casting) */
   window.tpsCast = { snapshot: function(){
     if(!halfW) return null;
