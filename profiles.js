@@ -66,6 +66,7 @@
     '#panelProf input[type=text]{ background:#0e1013; color:var(--text); border:1px solid var(--line); border-radius:2px; padding:8px; font:13px var(--f-ui); min-width:0; }' +
     '#panelProf .btns{ display:flex; gap:6px; flex-wrap:wrap; }' +
     '#panelProf .btns button{ flex:1 1 auto; justify-content:center; }' +
+    '#panelProf .copy{ display:flex; gap:8px; align-items:flex-start; font-size:12px; line-height:1.35; color:var(--text); cursor:pointer; }#panelProf .copy input{ margin-top:2px; }' +
     '#panelProf .go{ background:var(--ochre); color:#14100a; font-weight:600; }' +
     '#panelProf .warn{ background:#3a1d18; }';
   document.head.appendChild(st);
@@ -84,14 +85,16 @@
     '<h2>Profiles</h2>' +
     '<ul id="profInfo"></ul>' +
     '<input type="text" id="profName" maxlength="60" placeholder="Profile name" aria-label="Profile name" autocomplete="off">' +
+    '<label class="copy"><input type="checkbox" id="profCopy"><span id="profCopyText">Keep a copy of the files in this browser</span></label>' +
     '<div class="btns"><button id="profSave" class="go">Save profile</button><button id="profDel" class="hid">Delete</button></div>' +
     '<p class="note" id="profNote"></p>';
   foot.appendChild(pan);
 
-  var sel = $('profSel'), btn = $('profOpen'), info = $('profInfo'), nameIn = $('profName'), bSave = $('profSave'), bDel = $('profDel'), note = $('profNote');
+  var copyBox = $('profCopy'), copyText = $('profCopyText'), sel = $('profSel'), btn = $('profOpen'), info = $('profInfo'), nameIn = $('profName'), bSave = $('profSave'), bDel = $('profDel'), note = $('profNote');
   note.textContent = (canFiles
-    ? 'Files and folders you open with the buttons or by dropping them are remembered, so loading the profile reopens them. The browser may ask you to allow access again.'
-    : 'This browser cannot remember where files are. A profile keeps the settings and the file names; choose the files again after loading it.');
+    ? 'Files and folders opened with the buttons or by dropping are remembered by location, so loading the profile reopens them (the browser may ask to allow access). A kept copy also works if the originals move.'
+    : 'This browser cannot remember where files are. Keeping a copy stores the files inside the browser so the profile reopens them with no picking. Without a copy, only the names are saved.');
+  copyBox.checked = !canFiles;
 
   function fillSel(selectId){
     var all = readAll();
@@ -107,6 +110,13 @@
   }
   function selected(){ var id = sel.value; if(!id) return null; var l = readAll().list.filter(function(p){ return p.id === id; }); return l[0] || null; }
 
+  function mb(n){ return n >= 1048576 ? (n / 1048576).toFixed(n >= 10485760 ? 0 : 1) + ' MB' : Math.max(1, Math.round(n / 1024)) + ' KB'; }
+  function copyBytes(){
+    var n = 0;
+    if(cur.pics) cur.pics.files.forEach(function(f){ n += f.size || 0; });
+    if(cur.audio && cur.audio.file) n += cur.audio.file.size || 0;
+    return n;
+  }
   function li(text, sub){
     var el = document.createElement('li'); el.textContent = text;
     if(sub){ var s = document.createElement('small'); s.textContent = sub; el.appendChild(s); }
@@ -116,9 +126,10 @@
     if(pan.classList.contains('hid')) return;
     info.textContent = '';
     info.appendChild(li('Viewing: ' + modeLabel(api.settings())));
-    if(cur.pics) info.appendChild(li(kindWord(cur.pics.kind) + ': ' + cur.pics.label, cur.pics.handles ? 'location remembered' : 'name only'));
+    if(cur.pics) info.appendChild(li(kindWord(cur.pics.kind) + ': ' + cur.pics.label, cur.pics.handles ? 'location remembered' : (copyBox.checked ? 'copy will be kept' : 'name only')));
     else info.appendChild(li('Pictures: none opened', 'the test card is showing'));
-    if(cur.audio) info.appendChild(li('♪ ' + cur.audio.name, cur.audio.handle ? 'location remembered' : 'name only'));
+    if(cur.audio) info.appendChild(li('♪ ' + cur.audio.name, cur.audio.handle ? 'location remembered' : (copyBox.checked ? 'copy will be kept' : 'name only')));
+    var cb = copyBytes(); copyText.textContent = 'Keep a copy of the files in this browser' + (cb ? ' (' + mb(cb) + ')' : '');
     var n = nameIn.value.trim().toLowerCase(), exists = readAll().list.some(function(p){ return p.name.toLowerCase() === n; });
     bSave.textContent = exists ? 'Update profile' : 'Save profile';
     var s = selected(); bDel.classList.toggle('hid', !s);
@@ -136,7 +147,7 @@
   function closePan(){ pan.classList.add('hid'); btn.setAttribute('aria-expanded', 'false'); }
 
   btn.addEventListener('click', function(){ if(pan.classList.contains('hid')) openPan(); else closePan(); });
-  nameIn.addEventListener('input', refreshInfo);
+  nameIn.addEventListener('input', refreshInfo); copyBox.addEventListener('change', refreshInfo);
   nameIn.addEventListener('keydown', function(e){
     e.stopPropagation();
     if(e.key === 'Enter'){ e.preventDefault(); doSave(); }
@@ -153,6 +164,7 @@
   function doSave(){
     var name = nameIn.value.trim();
     if(!name){ say('Give the profile a name'); nameIn.focus(); return; }
+    var wantCopy = copyBox.checked && (cur.pics || cur.audio);
     var all = readAll();
     var p = all.list.filter(function(x){ return x.name.toLowerCase() === name.toLowerCase(); })[0];
     var isNew = !p;
@@ -160,18 +172,34 @@
     p.name = name; p.savedAt = Date.now();
     p.settings = api.settings();
     p.sound = window.tpsAudio ? window.tpsAudio.prefs() : null;
-    p.pics = cur.pics ? { kind:cur.pics.kind, label:cur.pics.label, count:cur.pics.count, names:cur.pics.names.slice(0, 30), remembered:!!cur.pics.handles } : null;
-    p.audio = cur.audio ? { name:cur.audio.name, remembered:!!cur.audio.handle } : null;
+    p.pics = cur.pics ? { kind:cur.pics.kind, label:cur.pics.label, count:cur.pics.count, names:cur.pics.names.slice(0, 30), remembered:!!cur.pics.handles, copy:false } : null;
+    p.audio = cur.audio ? { name:cur.audio.name, remembered:!!cur.audio.handle, copy:false } : null;
     var rec = {
       pics: (cur.pics && cur.pics.handles) ? { kind:cur.pics.kind, handles:cur.pics.handles } : null,
-      audio: (cur.audio && cur.audio.handle) || null
+      audio: (cur.audio && cur.audio.handle) || null,
+      picsCopy: null, audioCopy: null
     };
-    var stored = (rec.pics || rec.audio) ? hput(p.id, rec).then(function(){ return true; }, function(){ return false; }) : hdel(p.id).then(function(){ return true; }, function(){ return true; });
-    stored.then(function(ok){
-      if(!ok){ if(p.pics) p.pics.remembered = false; if(p.audio) p.audio.remembered = false; }
-      if(!writeAll(all)){ say('Could not save: browser storage is unavailable', 3500); return; }
-      fillSel(p.id); closePan();
-      say('Profile “' + name + '” ' + (isNew ? 'saved' : 'updated') + (ok || !(rec.pics || rec.audio) ? '' : ' (file locations could not be kept)'), 3000);
+    var space = Promise.resolve(true);
+    if(wantCopy){
+      var need = copyBytes();
+      space = (navigator.storage && navigator.storage.estimate) ? navigator.storage.estimate().then(function(e){ return !e.quota || need < (e.quota - (e.usage || 0)) * 0.9; }, function(){ return true; }) : Promise.resolve(true);
+    }
+    space.then(function(fits){
+      if(!fits){ say('Not enough browser storage to keep a copy (' + mb(copyBytes()) + '). Save without a copy, or use a smaller set.', 5000); return; }
+      if(wantCopy){
+        if(cur.pics) rec.picsCopy = { kind:cur.pics.kind, items:cur.pics.files.map(function(f){ return { name:f.name, rel:f.webkitRelativePath || '', blob:f }; }) };
+        if(cur.audio && cur.audio.file) rec.audioCopy = { name:cur.audio.name, blob:cur.audio.file };
+        if(navigator.storage && navigator.storage.persist) try{ navigator.storage.persist(); }catch(e){}
+      }
+      var any = rec.pics || rec.audio || rec.picsCopy || rec.audioCopy;
+      var stored = any ? hput(p.id, rec).then(function(){ return true; }, function(){ return false; }) : hdel(p.id).then(function(){ return true; }, function(){ return true; });
+      return stored.then(function(ok){
+        if(!ok){ [p.pics, p.audio].forEach(function(x){ if(x) x.remembered = false; }); }
+        else if(wantCopy){ if(p.pics) p.pics.copy = true; if(p.audio) p.audio.copy = true; }
+        if(!writeAll(all)){ say('Could not save: browser storage is unavailable', 3500); return; }
+        fillSel(p.id); closePan();
+        say('Profile “' + name + '” ' + (isNew ? 'saved' : 'updated') + (ok || !any ? '' : ' (files could not be kept: storage refused them)'), 3500);
+      });
     });
   }
   bSave.addEventListener('click', doSave);
@@ -222,6 +250,11 @@
     });
   }
 
+  function fromCopy(blob, name, rel){
+    var f = new File([blob], name, { type: blob.type });
+    if(rel){ try{ Object.defineProperty(f, 'webkitRelativePath', { value:rel }); }catch(e){} }
+    return f;
+  }
   function loadProfile(id){
     var p = readAll().list.filter(function(x){ return x.id === id; })[0];
     if(!p) return;
@@ -233,13 +266,20 @@
       r = r || {};
       var jobs = [];
       if(p.pics){
-        if(r.pics && r.pics.handles && r.pics.handles.length){
+        if(r.picsCopy && r.picsCopy.items && r.picsCopy.items.length){
+          try{
+            pendingPics = { handles:null };
+            api.open(r.picsCopy.items.map(function(it){ return fromCopy(it.blob, it.name, it.rel); }));
+          }catch(e){ again.push(p.pics.label); } finally { pendingPics = null; }
+        } else if(r.pics && r.pics.handles && r.pics.handles.length){
           jobs.push(ensure(r.pics.handles).then(function(){ return openPics(r.pics.kind, r.pics.handles); })
             .catch(function(){ again.push(p.pics.label); }));
         } else again.push(p.pics.label);
       }
       if(p.audio && window.tpsAudio){
-        if(r.audio){
+        if(r.audioCopy && r.audioCopy.blob){
+          try{ window.tpsAudio.load(fromCopy(r.audioCopy.blob, r.audioCopy.name, '')); }catch(e){ again.push(p.audio.name); }
+        } else if(r.audio){
           jobs.push(ensure([r.audio]).then(function(){ return r.audio.getFile(); }).then(function(f){
             pendingAudio = r.audio;
             try{ window.tpsAudio.load(f); } finally { pendingAudio = null; }
@@ -262,12 +302,12 @@
   /* ── track what is open ────────────────────────────────────────────── */
   window.addEventListener('tps:source', function(e){
     var d = e.detail || {};
-    cur.pics = { kind:d.kind, label:d.label, count:d.count, names:d.names || [], handles: pendingPics ? pendingPics.handles : null };
+    cur.pics = { kind:d.kind, label:d.label, count:d.count, names:d.names || [], files:d.files || [], handles: pendingPics ? pendingPics.handles : null };
     pendingPics = null; refreshInfo();
   });
   window.addEventListener('tps:audio', function(e){
     var f = e.detail && e.detail.file;
-    cur.audio = f ? { name:f.name, handle:pendingAudio } : null;
+    cur.audio = f ? { name:f.name, file:f, handle:pendingAudio } : null;
     pendingAudio = null; refreshInfo();
   });
   ['tps:plate'].forEach(function(t){ window.addEventListener(t, refreshInfo); });
@@ -350,7 +390,7 @@
         '<ul>' +
         '<li><b>Save…</b> in the bar opens the save panel. Type a name and press <b>Save profile</b>. Using a name that already exists updates that profile.</li>' +
         '<li>The <b>Profiles…</b> drop-down lists every saved profile. Choosing one loads it straight away. To remove one, choose it, open <b>Save…</b> and press Delete.</li>' +
-        '<li>A web page cannot read a file path, so what is remembered depends on the browser. In Chrome or Edge on a computer, files and folders you open with the buttons, or drop on the page, are remembered and reopened when you load the profile; the browser may ask you to allow access once. In other browsers (Safari, Firefox, phones and tablets) the profile keeps the settings and the file names, and the toast tells you which files to choose again.</li>' +
+        '<li>A web page cannot read a file path, so what is remembered depends on the browser. In Chrome or Edge on a computer, files and folders you open with the buttons, or drop on the page, are remembered and reopened when you load the profile; the browser may ask you to allow access once. In other browsers (Safari, Firefox, phones and tablets) a file location cannot be kept, so tick <b>Keep a copy of the files in this browser</b> in the save panel: the files are stored inside the browser and reopen with no picking. Copies use storage (the size is shown) and iOS may clear them after about a week unless the page is added to the Home Screen. Without a copy, only the settings and file names are saved and a toast tells you which files to choose again.</li>' +
         '<li>Loading a profile replaces the pictures and the soundtrack it saved. If it saved no soundtrack, whatever is playing is left alone.</li>' +
         '<li>Profiles live in this browser on this device. They are not uploaded anywhere.</li>' +
         '</ul>';
