@@ -2,7 +2,7 @@
 
 A single-page viewer for side-by-side stereo pairs **and** ordinary single pictures. In stereo mode it splits an image down the middle into two panes and drives both off **one shared transform** — pan and zoom stay identical, so the pair stays registered at any magnification.
 
-Open `index.html` in a browser (needs `app.js`, `help.js`, `audio.js`, `profiles.js`, `cast.js` and `receiver.html` next to it). No build step. Works on GitHub Pages. Zip unpacking uses JSZip from a CDN.
+Open `index.html` in a browser (needs `app.js`, `help.js`, `audio.js`, `profiles.js`, `cast.js`, `gestures.js` and `receiver.html` next to it). No build step. Works on GitHub Pages. Zip unpacking uses JSZip from a CDN.
 
 Press **?** (or the **?** button on the rail) for the built-in manual.
 
@@ -52,6 +52,16 @@ A profile is a saved setup: the viewing mode (cross-eyed, parallel, side by side
 - Uses the browser Presentation API: `receiver.html` runs on the Chromecast, and `cast.js` streams each picture and the current zoom/pan to it from the sender. Stepping, slide show, zoom, pan, swap, side by side, single image and right-eye nudge all follow. Fusion dots and eye labels are not shown on the TV.
 - Needs Chrome and the page served over **https** (GitHub Pages works). The button is hidden where the API is missing (Safari, Firefox, all iOS browsers). The sender and Chromecast must be on the same network.
 - Not yet verified on real hardware: it was tested against a simulated connection only.
+
+## Hand-gesture control
+
+- **Gestures** on the rail (or `G`) turns on the front camera and lets a hand pose press Previous / Next, so you can step through plates without touching the screen. It works in every mode (stereo, side by side, single image) and steps exactly like the on-screen buttons, including through multiple zips.
+- The hand tracking runs on the device (MediaPipe, loaded from a CDN); no video is recorded or uploaded. Needs a camera and the page served over **https** (GitHub Pages works).
+- Pick a gesture set under the settings gear, **Gesture control**: point up-right / up-left (default), one finger / two fingers, thumb up / thumb down, point right / point left, pinch and drag, or open-palm tilt. All of them use one hand.
+- A pose must be held for the **Hold** time (default 450 ms) and then the hand has to relax before the next trigger, with a **Cooldown** between slides, so a stray movement does not turn the page. A thin bar along the top edge fills while you hold.
+- **Flip left/right** reverses the directions if they feel backwards on your device.
+- The camera preview hides itself after 3 successful gestures and comes back after 30 seconds with none (**Hide camera after 3** turns this off).
+- The gesture settings are remembered in this browser (`localStorage` key `tps.gest.v1`).
 
 ## Full screen
 
