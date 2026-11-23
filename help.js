@@ -51,6 +51,7 @@
         <button data-go="h-aids">Alignment &amp; aids</button>
         <button data-go="h-full">Full screen</button>
         <button data-go="h-cast">Cast</button>
+        <button data-go="h-hand">Hand gestures</button>
         <button data-go="h-keys">Keyboard &amp; gestures</button>
         <button data-go="h-cross">Cross-eyed viewing</button>
         <button data-go="h-fix">Troubleshooting</button>
@@ -164,6 +165,32 @@
         <li>The fusion dots and eye labels are not shown on the TV. The right-eye alignment nudge is.</li>
       </ul>
 
+      <h2 id="h-hand">Hand-gesture control</h2>
+      <p>Step through plates without touching the screen: the front camera watches for a hand pose and presses <b>Previous</b> or <b>Next</b> for you. It works in every viewing mode and steps exactly like the ◀ ▶ buttons, including through several zips.</p>
+      <ul>
+        <li>Press <b>Gestures</b> in the bar (or <kbd>G</kbd>) and allow the camera. A small camera window appears with a label that shows what the app sees. Press it again to switch off.</li>
+        <li>Open the ⚙ settings and look under <b>Gesture control</b> to choose a gesture set. All of them use one hand.</li>
+        <li>Hold the pose steady for a moment. A thin bar along the top edge fills while you hold, then the plate changes. Relax your hand before the next one.</li>
+        <li>The camera window hides itself after three successful gestures and comes back after 30 seconds with none. <b>Hide camera after 3</b> turns this off.</li>
+        <li>Hand tracking runs on your device. Nothing is recorded or uploaded. It needs a camera, and the page must be opened over <b>https</b> (for example from GitHub Pages).</li>
+      </ul>
+      <table>
+        <tr><th>Gesture set</th><th>Next</th><th>Previous</th></tr>
+        <tr><td>Point up-left / up-right (default)</td><td>Index finger up, leaning to your right</td><td>Index finger up, leaning to your left</td></tr>
+        <tr><td>One finger / two fingers</td><td>One finger straight up</td><td>Two fingers up (peace sign)</td></tr>
+        <tr><td>Thumb up / thumb down</td><td>Thumb up</td><td>Thumb down</td></tr>
+        <tr><td>Point right / point left</td><td>Index finger pointing sideways to your right</td><td>Index finger pointing sideways to your left</td></tr>
+        <tr><td>Pinch and drag</td><td>Pinch, drag left, release</td><td>Pinch, drag right, release</td></tr>
+        <tr><td>Open-palm tilt</td><td>Open palm up, tilted to your right</td><td>Open palm up, tilted to your left</td></tr>
+      </table>
+      <h3>Tuning</h3>
+      <ul>
+        <li><b>Hold</b> is how long a pose must be held (default 450 ms). Raise it if plates change by accident; lower it if the app feels slow to react.</li>
+        <li><b>Cooldown</b> is the minimum pause between plate changes (default 1 s).</li>
+        <li><b>Flip left/right</b> reverses the directions if they feel backwards on your device.</li>
+      </ul>
+      <div class="tip">Keep your hand in view of the camera with your palm facing it, about an arm’s length away, and in even light. If a gesture is not being picked up, watch the label under the camera window: it shows what the app thinks your hand is doing.</div>
+
       <h2 id="h-keys">Keyboard &amp; gestures</h2>
       <table>
         <tr><th>Key</th><th>Action</th></tr>
@@ -177,6 +204,7 @@
         <tr><td><kbd>M</kbd></td><td>Single image / Stereo pair</td></tr>
         <tr><td><kbd>Space</kbd></td><td>Start / stop the slide show</td></tr>
         <tr><td><kbd>C</kbd></td><td>Cast to a Chromecast / stop casting</td></tr>
+        <tr><td><kbd>G</kbd></td><td>Hand-gesture control on / off</td></tr>
         <tr><td><kbd>F</kbd></td><td>Full screen on / off</td></tr>
         <tr><td><kbd>H</kbd></td><td>Hide / show controls</td></tr>
         <tr><td><kbd>D</kbd></td><td>Fusion dots on / off</td></tr>
@@ -219,6 +247,8 @@
       <p>A toast names the files to choose again. A browser cannot remember a file’s location unless it is Chrome or Edge on a computer, and even there access can be refused or the file may have moved. Save the profile again with <b>Keep a copy of the files in this browser</b> ticked, so it no longer depends on the original files. On iOS, stored copies can be cleared after about a week of not using the site unless the page is added to the Home Screen.</p>
       <h3>I do not see Profiles… in the bar</h3>
       <p>You are probably looking at an older, cached copy of the page. Reload it, or add <code>?v=2</code> to the address to force a fresh copy. The bar also scrolls onto a second row on narrow screens.</p>
+      <h3>Hand gestures are not working</h3>
+      <p>Allow camera access when the browser asks, and open the page over <b>https</b> (for example from GitHub Pages); a page opened straight from a file cannot use the camera. The first start downloads the hand-tracking model, so it needs a connection and may take a few seconds. Then watch the label under the camera window. If the directions feel backwards, turn on <b>Flip left/right</b> in the settings. If plates change by accident, increase <b>Hold</b>.</p>
       <h3>Large pictures load slowly</h3>
       <p>Very large pictures take a moment to decode. The app preloads the next and previous plates to keep stepping quick.</p>
 
