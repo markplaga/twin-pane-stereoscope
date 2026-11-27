@@ -19,8 +19,8 @@
 //   never cached. version.json is never intercepted. Non-GET requests
 //   are never intercepted.
 // - localStorage / IndexedDB / saved profiles are never touched.
-const RELEASE = '1.0.0-20261126-1';
-const DISPLAY_VERSION = '1.0.0';
+const RELEASE = '1.0.1-20261126-1';
+const DISPLAY_VERSION = '1.0.1';
 const NAMESPACE = 'pwa::markplaga/twin-pane-stereoscope::';
 const CACHE = NAMESPACE + RELEASE;
 const SHELL = [
