@@ -166,6 +166,20 @@
     },
     open: routeFiles
   };
+  /* PWA-UPDATE-SYSTEM v2 bridge: the update script in index.html runs
+     outside this IIFE, so it cannot reach save() or plates. Expose the
+     minimum it needs. save() flushes the viewer settings to localStorage
+     ('tps.v1'); they are also saved on every change, so this is a
+     belt-and-braces flush. (Gesture and sound settings in gestures.js /
+     audio.js are likewise saved on every change.) isDirty() is true when
+     the user has pictures open: a reload drops their in-memory object
+     URLs and the pictures must be reopened, or loaded from a saved
+     profile. The built-in depth test card is not work, and saved
+     profiles live in localStorage / IndexedDB, untouched by an update. */
+  window.__tpsUpdate = {
+    save: save,
+    isDirty: function(){ return plates.length > 1 || (plates.length === 1 && plates[0].name !== 'Depth test card (sample)'); }
+  };
   /* read-only snapshot for cast.js (second-screen casting) */
   window.tpsCast = { snapshot: function(){
     if(!halfW) return null;
