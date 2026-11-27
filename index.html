@@ -100,8 +100,6 @@
   .update-bar{ position:fixed; top:calc(env(safe-area-inset-top, 0px) + 10px); left:10px; right:10px; z-index:70; display:flex; flex-wrap:wrap; gap:10px 16px; align-items:center; justify-content:space-between; background:var(--panel); border:1.5px solid var(--ochre); border-radius:4px; padding:12px 14px; font-size:14px; color:var(--text); }
   .update-bar .row{ display:flex; gap:8px; justify-content:flex-start; }
   .update-bar .primary{ background:var(--ochre); color:#14100a; border-color:var(--ochre); font-weight:600; }
-  .appfoot{ position:fixed; left:10px; right:10px; bottom:calc(env(safe-area-inset-bottom, 0px) + 10px); z-index:70; display:flex; flex-wrap:wrap; gap:8px 14px; align-items:center; font-size:13px; color:var(--mute); background:rgba(10,11,13,.82); border:1px solid var(--line); border-radius:4px; padding:8px 10px; }
-  .appfoot button{ min-height:28px; padding:4px 10px; }
 </style>
 <div id="app" class="dots">
   <header class="chrome">
@@ -184,11 +182,6 @@
   <span id="updateText">A new version of Twin Pane Stereoscope is ready. Your settings and saved profiles are kept.</span>
   <span class="row"><button class="primary" id="updateNow">Update now</button><button id="updateLater">Later</button></span>
 </div>
-<footer class="appfoot">
-  <span>Twin Pane Stereoscope <b>v<span id="appVersion"></span></b></span>
-  <span id="updateStatus"></span>
-  <button id="checkUpdates" hidden>Check for updates</button>
-</footer>
 <script src="app.js"></script>
 <script src="help.js"></script>
 <script src="audio.js"></script>
@@ -203,11 +196,11 @@ const APP_VERSION='1.0.0';
   var LATER_KEY = 'twin-pane-stereoscope-update-later-v2';
   var BC_NAME = 'twin-pane-stereoscope-update-v2';
 
-  document.getElementById('appVersion').textContent = APP_VERSION;
+  var versionEl = document.getElementById('appVersion'); if (versionEl) versionEl.textContent = APP_VERSION;
   var status = document.getElementById('updateStatus'), checkBtn = document.getElementById('checkUpdates'), bar = document.getElementById('updateBar');
-  var say = function(t){ status.textContent = t; };
+  var say = function(t){ if (status) status.textContent = t; };
   if (!('serviceWorker' in navigator) || !/^https?:$/.test(location.protocol)) return;
-  checkBtn.hidden = false;
+  if (checkBtn) checkBtn.hidden = false;
 
   var reg = null, userAsked = false, reloading = false, updating = false;
   var remote = null, pendingRelease = null, checkPromise = null;
@@ -342,10 +335,10 @@ const APP_VERSION='1.0.0';
   }
   function check(manual){
     if (checkPromise) return checkPromise;
-    if (manual) { say('Checking\u2026'); checkBtn.disabled = true; }
+    if (manual) { say('Checking\u2026'); if (checkBtn) checkBtn.disabled = true; }
     checkPromise = maybeShowUpdate(manual).catch(function(){ return false; }).then(function(ok){
       checkPromise = null;
-      if (manual) checkBtn.disabled = false;
+      if (manual && checkBtn) checkBtn.disabled = false;
       return ok;
     });
     return checkPromise;
@@ -428,7 +421,7 @@ const APP_VERSION='1.0.0';
     try { sessionStorage.setItem(LATER_KEY, pendingRelease || (remote && remote.release) || '?'); } catch (e) {}
     say('Update postponed. You will be asked again next time you open the app, or tap Check for updates.');
   };
-  checkBtn.onclick = function(){ check(true); };
+  if (checkBtn) checkBtn.onclick = function(){ check(true); };
   // A controllerchange on its own (first install, or an update
   // activated from another tab) never reloads this page: only an
   // explicit Update now in this tab does, after verification in
